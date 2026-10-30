@@ -1,0 +1,205 @@
+{
+  "intro": {
+    "title": "Inbox.lv aptauja",
+    "subtitle": "Atbildes ir anonīmas un priecāsimies dzirdēt Jūsu viedokli. Tas mums palīdzēs attīstīties vēl ātrāk!",
+    "button": "Sākt"
+  },
+  "thanks": {
+    "title": "Paldies!",
+    "subtitle": "Jūsu atbildes ir saglabātas. Tās palīdzēs mums uzlabot Inbox."
+  },
+  "questions": [
+    {
+      "id": "years_using",
+      "section": "Par jums",
+      "type": "single",
+      "display": "dropdown",
+      "required": true,
+      "title": "Cik ilgi jūs jau lietojat Inbox?",
+      "placeholder": "Izvēlieties",
+      "options": [
+        {
+          "value": "under_1",
+          "label": "Mazāk par gadu"
+        },
+        {
+          "value": "1",
+          "label": "1 gads"
+        },
+        {
+          "value": "2",
+          "label": "2 gadi"
+        },
+        {
+          "value": "3",
+          "label": "3 gadi"
+        },
+        {
+          "value": "4",
+          "label": "4 gadi"
+        },
+        {
+          "value": "5_9",
+          "label": "5–9 gadi"
+        },
+        {
+          "value": "10_plus",
+          "label": "10+ gadi"
+        }
+      ]
+    },
+    {
+      "id": "news_channel",
+      "section": "Jaunumi",
+      "type": "multi",
+      "required": true,
+      "maxSelect": 6,
+      "title": "Kur jūs labāk vēlētos uzzināt jaunumus par produktu?",
+      "hint": "Var izvēlēties vairākus.",
+      "options": [
+        {
+          "value": "email",
+          "label": "E-pastā"
+        },
+        {
+          "value": "in_app",
+          "label": "Produkta iekšienē (ziņojums lietotnē)"
+        },
+        {
+          "value": "website",
+          "label": "Jaunumu lapā mājaslapā"
+        },
+        {
+          "value": "social",
+          "label": "Sociālajos tīklos (LinkedIn u.c.)"
+        },
+        {
+          "value": "meetings",
+          "label": "Sanāksmēs (tiešsaistē vai klātienē)"
+        },
+        {
+          "value": "newsletter",
+          "label": "Biļetenā reizi mēnesī"
+        }
+      ]
+    },
+    {
+      "id": "news_frequency",
+      "section": "Jaunumi",
+      "type": "single",
+      "required": true,
+      "title": "Cik bieži vēlaties saņemt jaunumus par produktu?",
+      "options": [
+        {
+          "value": "weekly",
+          "label": "Reizi nedēļā"
+        },
+        {
+          "value": "monthly",
+          "label": "Reizi mēnesī"
+        },
+        {
+          "value": "quarterly",
+          "label": "Reizi ceturksnī"
+        },
+        {
+          "value": "important_only",
+          "label": "Tikai par svarīgām izmaiņām"
+        }
+      ]
+    },
+    {
+      "id": "feedback_channel",
+      "section": "Atsauksmes",
+      "type": "single",
+      "required": true,
+      "title": "Kur jums ērtāk atstāt atsauksmi par produktu?",
+      "options": [
+        {
+          "value": "in_app_survey",
+          "label": "Īsa anketa produktā"
+        },
+        {
+          "value": "email_reply",
+          "label": "Atbilde uz e-pastu"
+        },
+        {
+          "value": "support_chat",
+          "label": "Tērzēšana ar atbalstu"
+        },
+        {
+          "value": "product_owner",
+          "label": "Saruna ar produkta pārvaldnieku"
+        },
+        {
+          "value": "social",
+          "label": "Sociālajos tīklos"
+        }
+      ]
+    },
+    {
+      "id": "feedback_ease",
+      "section": "Atsauksmes",
+      "type": "scale",
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "title": "Cik viegli šobrīd ir mums nodot savu viedokli?",
+      "minLabel": "Ļoti grūti",
+      "maxLabel": "Ļoti viegli"
+    },
+    {
+      "id": "satisfaction",
+      "section": "Atsauksmes",
+      "type": "scale",
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "title": "Cik jūs kopumā esat apmierināti ar produktu?",
+      "minLabel": "Neapmierināts",
+      "maxLabel": "Ļoti apmierināts"
+    },
+    {
+      "id": "nps",
+      "section": "Atsauksmes",
+      "type": "scale",
+      "required": true,
+      "min": 0,
+      "max": 10,
+      "title": "Cik ticams, ka jūs ieteiktu Inbox draugam vai kolēģim?",
+      "minLabel": "Noteikti ne",
+      "maxLabel": "Noteikti jā"
+    },
+    {
+      "id": "one_word",
+      "section": "Jūsu vārdi",
+      "type": "text",
+      "required": false,
+      "maxLength": 40,
+      "multiline": false,
+      "title": "Aprakstiet Inbox vienā vārdā",
+      "placeholder": "Piemēram: ātrs"
+    },
+    {
+      "id": "pain_point",
+      "section": "Jūsu vārdi",
+      "type": "text",
+      "required": false,
+      "maxLength": 1000,
+      "multiline": true,
+      "title": "Kas jums produktā šobrīd traucē visvairāk?",
+      "placeholder": "Rakstiet brīvi"
+    },
+    {
+      "id": "anything_else",
+      "section": "Jūsu vārdi",
+      "type": "text",
+      "required": false,
+      "maxLength": 1000,
+      "multiline": true,
+      "title": "Ko vēl vēlaties mums pateikt?",
+      "hint": "Ideja, uzslava, kritika, jebkas.",
+      "placeholder": "Rakstiet brīvi"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+# Dependencies and build output
+node_modules/
+dist/
+
+# Survey data (SQLite database and its journal files) must never be committed
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Local tooling and secrets
+.claude/
+.env
+.env.*
+
+# OS / editor noise
+.DS_Store
+Thumbs.db

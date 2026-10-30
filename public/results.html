@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="lv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex">
+  <title>Inbox.lv aptauja – rezultāti</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="site-header wide">
+    <a class="logo-link" href="./" title="Uz sākumu">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="img/inbox-white.png">
+        <img class="logo" src="img/inbox.png" alt="Inbox.lv — uz sākumu" width="124" height="30">
+      </picture>
+    </a>
+  </header>
+  <main class="shell wide" id="app">
+    <p class="eyebrow">Rezultāti</p>
+    <h1>Aptaujas atbildes</h1>
+    <div class="topbar">
+      <a class="btn btn-ghost" id="csv" href="#">Lejupielādēt CSV</a>
+      <span class="hint" id="updated"></span>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div id="questions"></div>
+  </main>
+  <script src="results.js" type="module"></script>
+</body>
+</html>

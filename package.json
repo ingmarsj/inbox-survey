@@ -1,0 +1,13 @@
+{
+  "name": "inbox-survey",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimalist user survey for Inbox.lv events. Node.js server, answers stored in SQLite.",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "build:pages": "node scripts/build-pages.mjs",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.js\""
+  }
+}

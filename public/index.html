@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="lv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Inbox.lv aptauja</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="progress" aria-hidden="true"><div class="progress-bar" id="progress"></div></div>
+    <header class="site-header">
+    <a class="logo-link" href="./" title="Uz sākumu">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="img/inbox-white.png">
+        <img class="logo" src="img/inbox.png" alt="Inbox.lv — uz sākumu" width="124" height="30">
+      </picture>
+    </a>
+  </header>
+  <main class="shell" id="app" aria-live="polite">
+    <p class="loading">Ielādē…</p>
+  </main>
+  <p class="status" id="status" role="status" hidden></p>
+  <script src="config.js"></script>
+  <script src="app.js" type="module"></script>
+</body>
+</html>
