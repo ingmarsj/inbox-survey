@@ -2,6 +2,8 @@
 
 A minimalist, mobile-first survey for Inbox.lv user events. Respondents tap "Sākt" ("Start"), answer one question at a time, and every answer is stored in SQLite. The survey itself is written in Latvian.
 
+**Live demo:** https://ingmarsj.github.io/inbox-survey/ (answers are not stored; see [GitHub Pages demo](#github-pages-demo)).
+
 ## Features
 
 - One question per screen, with a progress counter, a "Back" button and keyboard shortcuts (digits pick an answer, Enter continues).
