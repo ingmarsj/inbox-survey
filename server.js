@@ -4,9 +4,9 @@ import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  openDb, createSubmission, getSubmission, saveAnswer, completeSubmission, getMeta, setMeta,
+  openDb, createSubmission, getSubmission, saveAnswers, completeSubmission, getMeta, setMeta,
 } from './db.js';
-import { loadConfig, validateAnswer } from './questions.js';
+import { loadConfig, validateAnswer, isQuestionVisible, hiddenAnsweredIds } from './questions.js';
 import { aggregate, toCsv } from './results.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -116,17 +116,24 @@ export function createApp({ dbPath = path.join(ROOT, 'data', 'survey.db'), quest
       const question = questionsById.get(m[2]);
       if (!question) throw new HttpError(404, 'Question not found');
       if (sub.completedAt) throw new HttpError(409, 'Survey already submitted');
+      if (!isQuestionVisible(question, sub.answers)) throw new HttpError(400, 'Question is not part of this survey path');
       const body = await readJson(req);
       const result = validateAnswer(question, body.value);
       if (!result.ok) throw new HttpError(400, result.error);
-      saveAnswer(db, sub.id, question.id, result.value);
+
+      // A changed answer can move the respondent onto another path: drop answers that no longer belong.
+      const next = { ...sub.answers };
+      if (result.value === null) delete next[question.id];
+      else next[question.id] = result.value;
+      const dropped = hiddenAnsweredIds(config.questions, next);
+      saveAnswers(db, sub.id, [[question.id, result.value], ...dropped.map((id) => [id, null])]);
       return send(res, 200, { ok: true });
     }
 
     if ((m = pathname.match(/^\/api\/submissions\/([^/]+)\/complete$/)) && method === 'POST') {
       const sub = requireSubmission(m[1]);
       const missing = config.questions
-        .filter((q) => q.required && sub.answers[q.id] === undefined)
+        .filter((q) => q.required && isQuestionVisible(q, sub.answers) && sub.answers[q.id] === undefined)
         .map((q) => q.id);
       if (missing.length) throw new HttpError(422, 'Not all required questions are answered', { missing });
       completeSubmission(db, sub.id);

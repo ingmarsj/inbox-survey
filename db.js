@@ -57,6 +57,18 @@ export function saveAnswer(db, submissionId, questionId, value) {
   ).run(submissionId, questionId, JSON.stringify(value), now());
 }
 
+/** Applies [questionId, value|null] pairs in one transaction (null deletes the answer). */
+export function saveAnswers(db, submissionId, changes) {
+  db.exec('BEGIN');
+  try {
+    for (const [questionId, value] of changes) saveAnswer(db, submissionId, questionId, value);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
+
 export function completeSubmission(db, id) {
   db.prepare('UPDATE submissions SET completed_at = COALESCE(completed_at, ?) WHERE id = ?').run(now(), id);
 }

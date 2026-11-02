@@ -2,7 +2,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../server.js';
-import { loadConfig } from '../questions.js';
+import { loadConfig, isQuestionVisible } from '../questions.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const QUESTIONS_PATH = path.join(ROOT, 'questions.json');
@@ -49,7 +49,12 @@ export async function startServer(options = {}) {
   };
 }
 
-/** A valid answer for every question, optionally overridden. */
+/**
+ * A valid answer for every question on the respondent's path, optionally overridden.
+ * By default the respondent uses Inbox.lv ("under_1" year) and sees every regular question;
+ * pass `years_using: 'not_using'` for the short path. Answers for questions that are hidden
+ * on the resulting path are left out, just like a real respondent could not give them.
+ */
 export function validAnswers(overrides = {}) {
   const out = {};
   for (const q of config.questions) {
@@ -58,7 +63,8 @@ export function validAnswers(overrides = {}) {
     else if (q.type === 'scale') out[q.id] = q.max;
     else out[q.id] = `Teksts: ${q.id}`;
   }
-  return { ...out, ...overrides };
+  const merged = { ...out, years_using: 'under_1', ...overrides };
+  return Object.fromEntries(config.questions.filter((q) => isQuestionVisible(q, merged)).map((q) => [q.id, merged[q.id]]));
 }
 
 /** Raw request that keeps the path exactly as written (fetch would normalise ../). */

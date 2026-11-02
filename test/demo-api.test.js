@@ -101,3 +101,30 @@ test('demo API works without usable localStorage (falls back to memory)', async 
   await api('PUT', `api/submissions/${id}/answers/years_using`, { value: '4' });
   assert.equal((await api('GET', `api/submissions/${id}`)).answers.years_using, '4');
 });
+
+test('demo API follows the same short path for people who do not use Inbox.lv', async () => {
+  const api = newDemo();
+  const { id } = await api('POST', 'api/submissions');
+  await api('PUT', `api/submissions/${id}/answers/years_using`, { value: 'not_using' });
+
+  assert.equal((await failure(api('PUT', `api/submissions/${id}/answers/nps`, { value: 9 }))).status, 400);
+  await api('PUT', `api/submissions/${id}/answers/not_using_reason`, { value: 'No need' });
+  await api('POST', `api/submissions/${id}/complete`); // nothing else is required
+
+  const sub = await api('GET', `api/submissions/${id}`);
+  assert.equal(sub.completed, true);
+  assert.deepEqual(sub.answers, { years_using: 'not_using', not_using_reason: 'No need' });
+});
+
+test('demo API drops answers that no longer belong to the path when the first answer changes', async () => {
+  const api = newDemo();
+  const { id } = await api('POST', 'api/submissions');
+  const put = (qid, value) => api('PUT', `api/submissions/${id}/answers/${qid}`, { value });
+  await put('years_using', '2');
+  await put('nps', 9);
+  await put('years_using', 'not_using');
+  assert.deepEqual((await api('GET', `api/submissions/${id}`)).answers, { years_using: 'not_using' });
+  await put('not_using_reason', 'No need');
+  await put('years_using', '1');
+  assert.deepEqual((await api('GET', `api/submissions/${id}`)).answers, { years_using: '1' });
+});

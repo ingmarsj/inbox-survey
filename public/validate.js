@@ -42,3 +42,22 @@ export function validateAnswer(q, raw) {
       return fail('Unknown question type');
   }
 }
+
+/**
+ * True when the question is on this respondent's path, given the answers so far.
+ * A question may carry `visibleIf: { question, equals }` or `visibleIf: { question, notEquals }`
+ * that refers to an earlier single-choice question.
+ */
+export function isQuestionVisible(q, answers) {
+  const rule = q.visibleIf;
+  if (!rule) return true;
+  const given = answers[rule.question];
+  if (rule.equals !== undefined) return given === rule.equals;
+  if (rule.notEquals !== undefined) return given !== rule.notEquals;
+  return true;
+}
+
+/** Ids of answered questions that are no longer on the respondent's path (they must be dropped). */
+export function hiddenAnsweredIds(questions, answers) {
+  return questions.filter((q) => answers[q.id] !== undefined && !isQuestionVisible(q, answers)).map((q) => q.id);
+}

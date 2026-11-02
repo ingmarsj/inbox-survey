@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-export { validateAnswer } from './public/validate.js';
+export { validateAnswer, isQuestionVisible, hiddenAnsweredIds } from './public/validate.js';
 
 const TYPES = new Set(['single', 'multi', 'scale', 'text']);
 
@@ -34,5 +34,24 @@ export function loadConfig(file) {
       }
     }
   }
+  checkVisibilityRules(config.questions);
   return config;
+}
+
+/** A rule may only look at an earlier single-choice question that is always shown. */
+function checkVisibilityRules(questions) {
+  questions.forEach((q, index) => {
+    const rule = q.visibleIf;
+    if (rule === undefined) return;
+    const where = `questions.json: question "${q.id}" visibleIf`;
+    const modes = ['equals', 'notEquals'].filter((key) => rule[key] !== undefined);
+    if (modes.length !== 1) throw new Error(`${where}: use exactly one of "equals" or "notEquals"`);
+    const source = questions.slice(0, index).find((x) => x.id === rule.question);
+    if (!source) throw new Error(`${where}: "${rule.question}" must be an earlier question`);
+    if (source.type !== 'single') throw new Error(`${where}: "${source.id}" must be a single-choice question`);
+    if (source.visibleIf !== undefined) throw new Error(`${where}: "${source.id}" must not be conditional itself`);
+    if (!source.options.some((o) => o.value === rule[modes[0]])) {
+      throw new Error(`${where}: "${rule[modes[0]]}" is not an option of "${source.id}"`);
+    }
+  });
 }

@@ -1,4 +1,4 @@
-import { validateAnswer } from './validate.js';
+import { validateAnswer, isQuestionVisible, hiddenAnsweredIds } from './validate.js';
 
 /**
  * In-browser stand-in for the survey API, used by the static GitHub Pages demo.
@@ -83,10 +83,12 @@ export function createDemoApi({ loadQuestions, storage = defaultStorage() }) {
       const question = config.questions.find((q) => q.id === m[2]);
       if (!question) throw failure(404, 'Question not found');
       if (sub.completed) throw failure(409, 'Survey already submitted');
+      if (!isQuestionVisible(question, sub.answers)) throw failure(400, 'Question is not part of this survey path');
       const result = validateAnswer(question, body?.value);
       if (!result.ok) throw failure(400, result.error);
       if (result.value === null) delete sub.answers[question.id];
       else sub.answers[question.id] = result.value;
+      for (const id of hiddenAnsweredIds(config.questions, sub.answers)) delete sub.answers[id];
       write(all);
       return { ok: true };
     }
@@ -95,7 +97,7 @@ export function createDemoApi({ loadQuestions, storage = defaultStorage() }) {
       const all = read();
       const sub = all[m[1]];
       if (!sub) throw failure(404, 'Not found');
-      const missing = config.questions.filter((q) => q.required && sub.answers[q.id] === undefined).map((q) => q.id);
+      const missing = config.questions.filter((q) => q.required && isQuestionVisible(q, sub.answers) && sub.answers[q.id] === undefined).map((q) => q.id);
       if (missing.length) throw failure(422, 'Not all required questions are answered', { missing });
       sub.completed = true;
       write(all);

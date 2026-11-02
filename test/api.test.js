@@ -47,7 +47,7 @@ test('a respondent can go through the whole survey and everything lands in SQLit
     const sub = s.db.prepare('SELECT * FROM submissions WHERE id = ?').get(id);
     assert.ok(sub.completed_at);
     const rows = s.db.prepare('SELECT COUNT(*) AS n FROM answers WHERE submission_id = ?').get(id);
-    assert.equal(rows.n, config.questions.length);
+    assert.equal(rows.n, Object.keys(validAnswers()).length);
     const years = s.db.prepare("SELECT value FROM answers WHERE submission_id = ? AND question_id = 'years_using'").get(id);
     assert.equal(JSON.parse(years.value), 'under_1');
   } finally {
@@ -361,6 +361,101 @@ test('serves the pages and refuses to leave the public folder', async () => {
       assert.ok(!res.text.includes('createApp'), evil);
     }
     assert.equal((await s.call('POST', '/index.html', {})).status, 405);
+  } finally {
+    await s.stop();
+  }
+});
+
+/* ---------- the short path for people who do not use Inbox.lv ---------- */
+
+test('a non-user can finish after the first question, or add the reason and the free-text answers', async () => {
+  const s = await startServer();
+  try {
+    const quick = await s.newSubmission();
+    assert.equal((await s.answer(quick, 'years_using', 'not_using')).status, 200);
+    assert.equal((await s.call('POST', `/api/submissions/${quick}/complete`)).status, 200);
+
+    const full = await submitAll(s, { years_using: 'not_using' });
+    const answers = (await s.call('GET', `/api/submissions/${full}`)).json.answers;
+    assert.deepEqual(Object.keys(answers).sort(), ['anything_else', 'not_using_reason', 'one_word', 'years_using']);
+  } finally {
+    await s.stop();
+  }
+});
+
+test('answers to questions that are off the respondent path are rejected and not stored', async () => {
+  const s = await startServer();
+  try {
+    const nonUser = await s.newSubmission();
+    await s.answer(nonUser, 'years_using', 'not_using');
+    for (const [qid, value] of [['news_channel', ['email']], ['nps', 9], ['pain_point', 'Slow']]) {
+      assert.equal((await s.answer(nonUser, qid, value)).status, 400, qid);
+    }
+
+    const user = await s.newSubmission();
+    await s.answer(user, 'years_using', '2');
+    assert.equal((await s.answer(user, 'not_using_reason', 'Because')).status, 400);
+    assert.equal((await s.answer(await s.newSubmission(), 'not_using_reason', 'Because')).status, 400, 'hidden until the first answer says so');
+
+    assert.deepEqual((await s.call('GET', `/api/submissions/${nonUser}`)).json.answers, { years_using: 'not_using' });
+    assert.deepEqual((await s.call('GET', `/api/submissions/${user}`)).json.answers, { years_using: '2' });
+  } finally {
+    await s.stop();
+  }
+});
+
+test('changing the first answer drops the answers that no longer belong to the new path', async () => {
+  const s = await startServer();
+  try {
+    const id = await s.newSubmission();
+    const answers = async () => (await s.call('GET', `/api/submissions/${id}`)).json.answers;
+
+    await s.answer(id, 'years_using', '2');
+    await s.answer(id, 'news_channel', ['email']);
+    await s.answer(id, 'nps', 9);
+    await s.answer(id, 'one_word', 'ātrs');
+
+    await s.answer(id, 'years_using', 'not_using'); // user -> non-user
+    assert.deepEqual(await answers(), { years_using: 'not_using', one_word: 'ātrs' });
+
+    await s.answer(id, 'not_using_reason', 'Use another mailbox');
+    assert.equal((await answers()).not_using_reason, 'Use another mailbox');
+
+    await s.answer(id, 'years_using', '3'); // non-user -> user
+    assert.deepEqual(await answers(), { years_using: '3', one_word: 'ātrs' });
+
+    // the database agrees with the API
+    const rows = s.db.prepare('SELECT question_id FROM answers WHERE submission_id = ? ORDER BY question_id').all(id);
+    assert.deepEqual(rows.map((r) => r.question_id), ['one_word', 'years_using']);
+  } finally {
+    await s.stop();
+  }
+});
+
+test('a user still has to answer every regular required question; the reason question is never required', async () => {
+  const s = await startServer();
+  try {
+    const id = await s.newSubmission();
+    await s.answer(id, 'years_using', '4');
+    const res = await s.call('POST', `/api/submissions/${id}/complete`);
+    assert.equal(res.status, 422);
+    assert.deepEqual(res.json.missing, ['news_channel', 'news_frequency', 'feedback_channel', 'feedback_ease', 'satisfaction', 'nps']);
+  } finally {
+    await s.stop();
+  }
+});
+
+test('results keep the "why not" answers apart from the users answers', async () => {
+  const s = await startServer();
+  try {
+    await submitAll(s, { years_using: 'not_using', not_using_reason: 'No need' });
+    await submitAll(s, { years_using: '2', nps: 9 });
+    const results = (await s.call('GET', `/api/results?token=${TOKEN}`)).json;
+    const q = (id) => results.questions.find((x) => x.id === id);
+    assert.deepEqual(q('not_using_reason').texts, [{ text: 'No need' }]);
+    assert.equal(q('nps').answered, 1, 'the non-user was never asked');
+    assert.equal(q('years_using').options.find((o) => o.value === 'not_using').count, 1);
+    assert.deepEqual(results.totals, { started: 2, completed: 2 });
   } finally {
     await s.stop();
   }

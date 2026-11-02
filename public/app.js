@@ -1,3 +1,5 @@
+import { isQuestionVisible, hiddenAnsweredIds } from './validate.js';
+
 const app = document.getElementById('app');
 const progressBar = document.getElementById('progress');
 const statusEl = document.getElementById('status');
@@ -136,10 +138,24 @@ function questions() {
   return state.config.questions;
 }
 
-/** Where to resume: the first unanswered question, or the last one if everything is answered. */
+/** The questions this respondent will see, in order. It changes when the first answers change. */
+function visibleQuestions() {
+  return questions().filter((q) => isQuestionVisible(q, state.answers));
+}
+
+/** Drops answers (and unsent saves) for questions that fell off the path after an answer changed. */
+function pruneHiddenAnswers() {
+  for (const id of hiddenAnsweredIds(questions(), state.answers)) {
+    delete state.answers[id];
+    pending.delete(id);
+  }
+}
+
+/** Where to resume: the first unanswered question on the path, or the last one if everything is answered. */
 function firstUnansweredIndex() {
-  const i = questions().findIndex((q) => state.answers[q.id] === undefined);
-  return i === -1 ? questions().length - 1 : i;
+  const path = visibleQuestions();
+  const q = path.find((x) => state.answers[x.id] === undefined) ?? path[path.length - 1];
+  return questions().indexOf(q);
 }
 
 function renderWelcome() {
@@ -190,17 +206,26 @@ async function start(event) {
 
 function renderQuestion() {
   const q = questions()[state.index];
-  const isLast = state.index === questions().length - 1;
-  setProgress(state.index / questions().length);
+  const path = visibleQuestions();
+  const position = path.indexOf(q);
+  const isLast = position === path.length - 1;
+  setProgress(position / path.length);
 
   let busy = false;
   const advance = () => {
     if (busy) return;
     busy = true;
-    isLast ? submit().finally(() => (busy = false)) : go(state.index + 1);
+    // Recalculated here: answering this very question may have changed the path.
+    const now = visibleQuestions();
+    const at = now.indexOf(q);
+    at === now.length - 1 ? submit().finally(() => (busy = false)) : go(questions().indexOf(now[at + 1]));
   };
 
-  const back = el('button', { class: 'btn btn-ghost', type: 'button', onclick: () => go(state.index - 1), disabled: state.index === 0 }, '← Atpakaļ');
+  const goBack = () => {
+    const now = visibleQuestions();
+    go(questions().indexOf(now[Math.max(0, now.indexOf(q) - 1)]));
+  };
+  const back = el('button', { class: 'btn btn-ghost', type: 'button', onclick: goBack, disabled: position === 0 }, '← Atpakaļ');
   const next = el('button', { class: 'btn btn-primary', type: 'button', id: 'next', onclick: advance }, isLast ? 'Iesniegt' : 'Tālāk');
   const autoAdvance = (q.type === 'single' && q.display !== 'dropdown') || q.type === 'scale';
   const actions = el('div', { class: 'actions' }, back, el('span', { class: 'spacer' }), autoAdvance ? null : next);
@@ -212,6 +237,7 @@ function renderQuestion() {
     // One tap answers and moves on — no extra button needed.
     const choose = (value) => {
       state.answers[q.id] = value;
+      pruneHiddenAnswers();
       queueSave(q.id, value);
       for (const b of body.querySelectorAll('.option')) b.setAttribute('aria-checked', String(b.dataset.value === String(value)));
       setTimeout(advance, 260);
@@ -223,7 +249,7 @@ function renderQuestion() {
     body = textInput(q, next, isLast);
   }
 
-  const counter = `${state.index + 1} / ${questions().length}`;
+  const counter = `${position + 1} / ${path.length}`;
   const usesKeys = q.type === 'multi' || q.type === 'scale' || (q.type === 'single' && q.display !== 'dropdown');
   render(
     [
@@ -286,6 +312,7 @@ function dropdownSingle(q, next) {
   };
   select.addEventListener('change', () => {
     state.answers[q.id] = select.value;
+    pruneHiddenAnswers();
     queueSave(q.id, select.value);
     sync();
   });
