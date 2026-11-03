@@ -116,7 +116,7 @@ test('the shipped survey follows the marketing wording and order', () => {
 
   // Q2: shorter labels, and the newsletter option is gone
   assert.deepEqual(byId('news_channel').options.map((o) => o.label), [
-    'E-pastā', 'Ziņojums aplikācijā', 'Sociālajos medijos', 'Klātienes vai online pasākumos', 'Cits',
+    'E-pastā', 'Ziņojums aplikācijā', 'Sociālajos tīklos', 'Klātienes vai online pasākumos', 'Cits',
   ]);
   assert.equal(byId('news_channel').options.some((o) => o.value === 'newsletter'), false);
   // Q3: people can say they are not interested in news
@@ -226,7 +226,7 @@ test('"how easy is it to leave feedback" uses answer options, including "no need
 test('news channels: "Cits" lets people write their own, and some options are gone', () => {
   const q = byId('news_channel');
   assert.equal(q.type, 'multi');
-  assert.deepEqual(q.options.map((o) => o.label), ['E-pastā', 'Ziņojums aplikācijā', 'Sociālajos medijos', 'Klātienes vai online pasākumos', 'Cits']);
+  assert.deepEqual(q.options.map((o) => o.label), ['E-pastā', 'Ziņojums aplikācijā', 'Sociālajos tīklos', 'Klātienes vai online pasākumos', 'Cits']);
   assert.equal(q.options.some((o) => o.value === 'website'), false, 'the website news page option was removed');
   assert.equal(q.options.at(-1).writeIn, 'news_channel_other');
 
@@ -246,7 +246,7 @@ test('where to leave feedback is a multiple-choice question with the agreed opti
   assert.equal(q.type, 'multi');
   assert.equal(q.required, true);
   assert.deepEqual(q.options.map((o) => o.label), [
-    'Īsa anketa vēstulē e-pastā', 'Sarunā ar atbalsta komandu', 'Atsauksmju forma mobīlajā aplikācijā', 'Sociālajos medijos',
+    'Īsa anketa vēstulē e-pastā', 'Sarunā ar atbalsta komandu', 'Atsauksmju forma mobilajā aplikācijā', 'Sociālajos tīklos',
   ]);
   assert.deepEqual(validateAnswer(q, ['email_survey', 'social']), { ok: true, value: ['email_survey', 'social'] });
   assert.equal(validateAnswer(q, 'email_survey').ok, false, 'a single value is no longer valid');

@@ -124,7 +124,7 @@ values (true, $survey_json$
       "multiline": true,
       "title": "Kāpēc Jūs nelietojat Inbox.lv?",
       "hint": "Pastāstiet saviem vārdiem.",
-      "placeholder": "Rakstiet brīvi",
+      "placeholder": "Jūsu atbilde",
       "visibleIf": {
         "question": "years_using",
         "equals": "not_using"
@@ -149,7 +149,7 @@ values (true, $survey_json$
         },
         {
           "value": "social",
-          "label": "Sociālajos medijos"
+          "label": "Sociālajos tīklos"
         },
         {
           "value": "meetings",
@@ -229,11 +229,11 @@ values (true, $survey_json$
         },
         {
           "value": "mobile_app_form",
-          "label": "Atsauksmju forma mobīlajā aplikācijā"
+          "label": "Atsauksmju forma mobilajā aplikācijā"
         },
         {
           "value": "social",
-          "label": "Sociālajos medijos"
+          "label": "Sociālajos tīklos"
         }
       ],
       "visibleIf": {
@@ -318,7 +318,7 @@ values (true, $survey_json$
       "maxLength": 1000,
       "multiline": true,
       "title": "Kas Jums Inbox.lv šobrīd traucē visvairāk?",
-      "placeholder": "Rakstiet brīvi",
+      "placeholder": "Jūsu atbilde",
       "visibleIf": {
         "question": "years_using",
         "notEquals": "not_using"
@@ -343,7 +343,7 @@ values (true, $survey_json$
       "multiline": true,
       "title": "Ko vēl vēlaties mums pateikt?",
       "hint": "Ideja, uzslava, kritika, jebkas.",
-      "placeholder": "Rakstiet brīvi"
+      "placeholder": "Jūsu atbilde"
     }
   ]
 }

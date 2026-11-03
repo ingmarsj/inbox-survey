@@ -119,7 +119,7 @@
       "multiline": true,
       "title": "Kāpēc Jūs nelietojat Inbox.lv?",
       "hint": "Pastāstiet saviem vārdiem.",
-      "placeholder": "Rakstiet brīvi",
+      "placeholder": "Jūsu atbilde",
       "visibleIf": {
         "question": "years_using",
         "equals": "not_using"
@@ -144,7 +144,7 @@
         },
         {
           "value": "social",
-          "label": "Sociālajos medijos"
+          "label": "Sociālajos tīklos"
         },
         {
           "value": "meetings",
@@ -224,11 +224,11 @@
         },
         {
           "value": "mobile_app_form",
-          "label": "Atsauksmju forma mobīlajā aplikācijā"
+          "label": "Atsauksmju forma mobilajā aplikācijā"
         },
         {
           "value": "social",
-          "label": "Sociālajos medijos"
+          "label": "Sociālajos tīklos"
         }
       ],
       "visibleIf": {
@@ -313,7 +313,7 @@
       "maxLength": 1000,
       "multiline": true,
       "title": "Kas Jums Inbox.lv šobrīd traucē visvairāk?",
-      "placeholder": "Rakstiet brīvi",
+      "placeholder": "Jūsu atbilde",
       "visibleIf": {
         "question": "years_using",
         "notEquals": "not_using"
@@ -338,7 +338,7 @@
       "multiline": true,
       "title": "Ko vēl vēlaties mums pateikt?",
       "hint": "Ideja, uzslava, kritika, jebkas.",
-      "placeholder": "Rakstiet brīvi"
+      "placeholder": "Jūsu atbilde"
     }
   ]
 }
