@@ -37,9 +37,6 @@ function renderQuestion(q) {
     if (q.average !== null) {
       card.append(el('p', {}, el('span', { class: 'big-number' }, q.average.toFixed(1)), `vidēji no ${q.max}`));
     }
-    if (q.nps) {
-      card.append(el('p', { class: 'hint' }, `NPS ${q.nps.score} · atbalstītāji ${q.nps.promoters}, neitrāli ${q.nps.passives}, kritiķi ${q.nps.detractors}`));
-    }
     for (const d of q.distribution) card.append(barRow(String(d.value), d.count, q.answered));
   } else if (q.texts) {
     card.classList.add('card-wide');

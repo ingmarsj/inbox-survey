@@ -60,10 +60,10 @@ test('progress is saved as the respondent goes, so reloading resumes', async () 
   try {
     const id = await s.newSubmission();
     await s.answer(id, 'years_using', '2');
-    await s.answer(id, 'nps', 9);
+    await s.answer(id, 'recommend', 4);
     const got = await s.call('GET', `/api/submissions/${id}`);
     assert.equal(got.json.completed, false);
-    assert.deepEqual(got.json.answers, { years_using: '2', nps: 9 });
+    assert.deepEqual(got.json.answers, { years_using: '2', recommend: 4 });
   } finally {
     await s.stop();
   }
@@ -113,9 +113,12 @@ test('rejects invalid answers with 400 and stores nothing', async () => {
       ['feedback_channel', 7],
       ['news_channel', 'email'],
       ['news_channel', ['email', 'nope']],
-      ['nps', 11],
-      ['nps', '9'],
-      ['feedback_ease', 0],
+      ['recommend', 6],
+      ['recommend', 0],
+      ['recommend', '4'],
+      ['feedback_ease', 3],
+      ['feedback_ease', 'martian'],
+      ['age_group', 'ancient'],
       ['one_word', 'x'.repeat(41)],
       ['pain_point', 'x'.repeat(1001)],
       ['pain_point', { a: 1 }],
@@ -191,9 +194,9 @@ test('concurrent respondents do not mix up answers', async () => {
   const s = await startServer();
   try {
     const ids = await Promise.all(Array.from({ length: 30 }, () => s.newSubmission()));
-    await Promise.all(ids.map((id, i) => s.answer(id, 'nps', i % 11)));
+    await Promise.all(ids.map((id, i) => s.answer(id, 'recommend', 1 + (i % 5))));
     for (const [i, id] of ids.entries()) {
-      assert.equal((await s.call('GET', `/api/submissions/${id}`)).json.answers.nps, i % 11);
+      assert.equal((await s.call('GET', `/api/submissions/${id}`)).json.answers.recommend, 1 + (i % 5));
     }
   } finally {
     await s.stop();
@@ -215,16 +218,16 @@ test('results need the admin token', async () => {
   }
 });
 
-test('results aggregate counts, averages, NPS and texts', async () => {
+test('results aggregate counts, averages and texts', async () => {
   const s = await startServer();
   try {
     // three finished respondents and one who stopped halfway
-    await submitAll(s, { years_using: '1', nps: 10, feedback_channel: 'in_app_survey', news_channel: ['email'], satisfaction: 5, one_word: 'ātrs' });
-    await submitAll(s, { years_using: '2', nps: 9, feedback_channel: 'email_reply', news_channel: ['email', 'website'], satisfaction: 4, one_word: 'ērts' });
-    await submitAll(s, { years_using: '10_plus', nps: 3, feedback_channel: 'support_chat', news_channel: ['social'], satisfaction: 2, one_word: 'lēns' });
+    await submitAll(s, { years_using: '1', recommend: 5, feedback_channel: 'in_app_survey', news_channel: ['email'], satisfaction: 5, one_word: 'ātrs' });
+    await submitAll(s, { years_using: '2', recommend: 4, feedback_channel: 'email_reply', news_channel: ['email', 'website'], satisfaction: 4, one_word: 'ērts' });
+    await submitAll(s, { years_using: '10_plus', recommend: 1, feedback_channel: 'support_chat', news_channel: ['social'], satisfaction: 2, one_word: 'lēns' });
     const partial = await s.newSubmission();
     await s.answer(partial, 'years_using', '2');
-    await s.answer(partial, 'nps', 7);
+    await s.answer(partial, 'recommend', 3);
 
     const all = (await s.call('GET', `/api/results?token=${TOKEN}`)).json;
     assert.deepEqual(all.totals, { started: 4, completed: 3 });
@@ -242,11 +245,15 @@ test('results aggregate counts, averages, NPS and texts', async () => {
     assert.equal(news.options.find((o) => o.value === 'email').count, 2);
     assert.equal(news.options.find((o) => o.value === 'website').count, 1);
 
-    const nps = q('nps');
-    assert.equal(nps.answered, 4);
-    assert.deepEqual(nps.nps, { promoters: 2, passives: 1, detractors: 1, score: 25 });
-    assert.equal(nps.average, (10 + 9 + 3 + 7) / 4);
-    assert.equal(nps.distribution.find((d) => d.value === 9).count, 1);
+    const rec = q('recommend');
+    assert.equal(rec.answered, 4);
+    assert.equal(rec.average, (5 + 4 + 1 + 3) / 4);
+    assert.equal(rec.distribution.length, 5);
+    assert.equal(rec.distribution.find((d) => d.value === 4).count, 1);
+    assert.equal(rec.nps, undefined, 'no NPS maths on a 1-5 scale');
+
+    const ease = q('feedback_ease');
+    assert.equal(ease.options.find((o) => o.value === 'no_need').label, 'Nesaskatu nepieciešamību');
 
     const years = q('years_using');
     assert.equal(years.answered, 4);
@@ -267,9 +274,9 @@ test('results for an empty database do not crash', async () => {
   try {
     const res = (await s.call('GET', `/api/results?token=${TOKEN}`)).json;
     assert.deepEqual(res.totals, { started: 0, completed: 0 });
-    const nps = res.questions.find((q) => q.id === 'nps');
-    assert.equal(nps.average, null);
-    assert.equal(nps.nps, undefined);
+    const rec = res.questions.find((q) => q.id === 'recommend');
+    assert.equal(rec.average, null);
+    assert.deepEqual(rec.distribution.map((d) => d.count), [0, 0, 0, 0, 0]);
   } finally {
     await s.stop();
   }
@@ -283,7 +290,7 @@ test('CSV export has a header, UTF-8 BOM, proper quoting and blocks formula inje
     assert.equal(res.status, 200);
     assert.match(res.headers.get('content-type'), /text\/csv/);
     assert.match(res.headers.get('content-disposition'), /attachment/);
-    assert.ok(res.text.startsWith('﻿submission_id,created_at,completed_at,years_using,'));
+    assert.ok(res.text.startsWith('﻿submission_id,created_at,completed_at,age_group,'));
     const header = res.text.slice(1).split('\r\n')[0].split(',');
     assert.deepEqual(header.slice(3), config.questions.map((q) => q.id));
     assert.ok(res.text.includes('ātrs'));
@@ -368,16 +375,18 @@ test('serves the pages and refuses to leave the public folder', async () => {
 
 /* ---------- the short path for people who do not use Inbox.lv ---------- */
 
-test('a non-user can finish after the first question, or add the reason and the free-text answers', async () => {
+test('a non-user can finish after the demographics and the first question, or add the reason and the free-text answers', async () => {
   const s = await startServer();
   try {
     const quick = await s.newSubmission();
+    assert.equal((await s.answer(quick, 'age_group', '25_34')).status, 200);
+    assert.equal((await s.answer(quick, 'gender', 'no_answer')).status, 200);
     assert.equal((await s.answer(quick, 'years_using', 'not_using')).status, 200);
     assert.equal((await s.call('POST', `/api/submissions/${quick}/complete`)).status, 200);
 
     const full = await submitAll(s, { years_using: 'not_using' });
     const answers = (await s.call('GET', `/api/submissions/${full}`)).json.answers;
-    assert.deepEqual(Object.keys(answers).sort(), ['anything_else', 'not_using_reason', 'one_word', 'years_using']);
+    assert.deepEqual(Object.keys(answers).sort(), ['age_group', 'anything_else', 'gender', 'not_using_reason', 'one_word', 'years_using']);
   } finally {
     await s.stop();
   }
@@ -388,7 +397,7 @@ test('answers to questions that are off the respondent path are rejected and not
   try {
     const nonUser = await s.newSubmission();
     await s.answer(nonUser, 'years_using', 'not_using');
-    for (const [qid, value] of [['news_channel', ['email']], ['nps', 9], ['pain_point', 'Slow']]) {
+    for (const [qid, value] of [['news_channel', ['email']], ['recommend', 4], ['pain_point', 'Slow']]) {
       assert.equal((await s.answer(nonUser, qid, value)).status, 400, qid);
     }
 
@@ -412,7 +421,7 @@ test('changing the first answer drops the answers that no longer belong to the n
 
     await s.answer(id, 'years_using', '2');
     await s.answer(id, 'news_channel', ['email']);
-    await s.answer(id, 'nps', 9);
+    await s.answer(id, 'recommend', 4);
     await s.answer(id, 'one_word', 'ātrs');
 
     await s.answer(id, 'years_using', 'not_using'); // user -> non-user
@@ -439,7 +448,7 @@ test('a user still has to answer every regular required question; the reason que
     await s.answer(id, 'years_using', '4');
     const res = await s.call('POST', `/api/submissions/${id}/complete`);
     assert.equal(res.status, 422);
-    assert.deepEqual(res.json.missing, ['news_channel', 'news_frequency', 'feedback_channel', 'feedback_ease', 'satisfaction', 'nps']);
+    assert.deepEqual(res.json.missing, ['age_group', 'gender', 'news_channel', 'news_frequency', 'feedback_channel', 'feedback_ease', 'satisfaction', 'recommend']);
   } finally {
     await s.stop();
   }
@@ -449,11 +458,11 @@ test('results keep the "why not" answers apart from the users answers', async ()
   const s = await startServer();
   try {
     await submitAll(s, { years_using: 'not_using', not_using_reason: 'No need' });
-    await submitAll(s, { years_using: '2', nps: 9 });
+    await submitAll(s, { years_using: '2', recommend: 4 });
     const results = (await s.call('GET', `/api/results?token=${TOKEN}`)).json;
     const q = (id) => results.questions.find((x) => x.id === id);
     assert.deepEqual(q('not_using_reason').texts, [{ text: 'No need' }]);
-    assert.equal(q('nps').answered, 1, 'the non-user was never asked');
+    assert.equal(q('recommend').answered, 1, 'the non-user was never asked');
     assert.equal(q('years_using').options.find((o) => o.value === 'not_using').count, 1);
     assert.deepEqual(results.totals, { started: 2, completed: 2 });
   } finally {

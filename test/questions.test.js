@@ -13,7 +13,7 @@ test('the shipped questions.json is valid and has the expected shape', () => {
   assert.ok(config.intro.button);
   const ids = config.questions.map((q) => q.id);
   assert.equal(new Set(ids).size, ids.length, 'ids are unique');
-  assert.equal(ids[0], 'years_using', 'the years dropdown is the first question');
+  assert.deepEqual(ids.slice(0, 3), ['age_group', 'gender', 'years_using'], 'demographics come first');
   assert.equal(config.questions.some((q) => q.id.startsWith('direction_')), false, 'no direction questions');
 });
 
@@ -61,10 +61,11 @@ test('multi choice: unique, listed, within maxSelect', () => {
 });
 
 test('scale accepts integers inside min..max only', () => {
-  const nps = byId('nps');
-  assert.equal(validateAnswer(nps, 0).ok, true);
-  assert.equal(validateAnswer(nps, 10).ok, true);
-  for (const bad of [-1, 11, 5.5, '5', NaN, true]) assert.equal(validateAnswer(nps, bad).ok, false, String(bad));
+  const rec = byId('recommend');
+  assert.deepEqual([rec.min, rec.max], [1, 5]);
+  assert.equal(validateAnswer(rec, 1).ok, true);
+  assert.equal(validateAnswer(rec, 5).ok, true);
+  for (const bad of [0, 6, 5.5, '5', NaN, true]) assert.equal(validateAnswer(rec, bad).ok, false, String(bad));
 });
 
 test('the years question is a required dropdown with the agreed ranges', () => {
@@ -109,8 +110,8 @@ test('text is trimmed, length-limited, and optional text can be cleared', () => 
 test('the shipped survey follows the marketing wording and order', () => {
   const ids = config.questions.map((q) => q.id);
   assert.deepEqual(ids, [
-    'years_using', 'not_using_reason', 'news_channel', 'news_frequency', 'feedback_channel',
-    'feedback_ease', 'satisfaction', 'nps', 'pain_point', 'one_word', 'anything_else',
+    'age_group', 'gender', 'years_using', 'not_using_reason', 'news_channel', 'news_frequency', 'feedback_channel',
+    'feedback_ease', 'satisfaction', 'recommend', 'pain_point', 'one_word', 'anything_else',
   ]);
 
   // Q2: shorter labels, and the newsletter option is gone
@@ -138,7 +139,7 @@ test('the shipped survey follows the marketing wording and order', () => {
 
 test('people who do not use Inbox.lv get a short path; users do not see the "why not" question', () => {
   const pathFor = (years) => config.questions.filter((q) => isQuestionVisible(q, { years_using: years })).map((q) => q.id);
-  assert.deepEqual(pathFor('not_using'), ['years_using', 'not_using_reason', 'one_word', 'anything_else']);
+  assert.deepEqual(pathFor('not_using'), ['age_group', 'gender', 'years_using', 'not_using_reason', 'one_word', 'anything_else']);
   assert.ok(!pathFor('2').includes('not_using_reason'));
   assert.equal(pathFor('2').length, config.questions.length - 1);
   // before the first answer everything regular is shown, and the non-user question is not
@@ -189,4 +190,47 @@ test('loadConfig validates visibleIf rules', () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('demographics: age group and gender, both with a "prefer not to say" answer', () => {
+  for (const id of ['age_group', 'gender']) {
+    const q = byId(id);
+    assert.equal(q.type, 'single');
+    assert.equal(q.required, true);
+    assert.equal(q.options.at(-1).label, 'Nevēlos norādīt', id);
+    assert.equal(q.visibleIf, undefined, 'asked of everybody, including non-users');
+  }
+  assert.deepEqual(byId('age_group').options.map((o) => o.label), [
+    'Jaunāks par 18', '18–24', '25–34', '35–44', '45–54', '55–64', '65 un vairāk', 'Nevēlos norādīt',
+  ]);
+});
+
+test('"how easy is it to leave feedback" uses answer options, including "no need"', () => {
+  const q = byId('feedback_ease');
+  assert.equal(q.type, 'single');
+  assert.equal(q.title, 'Ja vajadzētu, cik viegli Jums būtu mums atstāt ieteikumus/atsauksmi?');
+  assert.deepEqual(q.options.map((o) => o.label), [
+    'Ļoti viegli', 'Drīzāk viegli', 'Ne viegli, ne grūti', 'Drīzāk grūti', 'Ļoti grūti', 'Nesaskatu nepieciešamību',
+  ]);
+  assert.equal(q.options.at(-1).value, 'no_need');
+});
+
+test('there is no 0-10 scale any more: every scale is 1-5', () => {
+  const scales = config.questions.filter((q) => q.type === 'scale');
+  assert.ok(scales.length >= 2);
+  for (const q of scales) assert.deepEqual([q.min, q.max], [1, 5], q.id);
+});
+
+test('"Jūs", "Jums" and "Jūsu" always start with a capital letter', () => {
+  const texts = [];
+  const collect = (value) => {
+    if (typeof value === 'string') texts.push(value);
+    else if (Array.isArray(value)) value.forEach(collect);
+    else if (value && typeof value === 'object') Object.entries(value).forEach(([k, v]) => k !== 'id' && k !== 'value' && collect(v));
+  };
+  collect(config.intro);
+  collect(config.thanks);
+  collect(config.questions);
+  assert.ok(texts.some((t) => /\bJūs\b|\bJums\b|\bJūsu\b/.test(t)), 'the survey does address people with a capital letter');
+  for (const text of texts) assert.doesNotMatch(text, /\b(jūs|jums|jūsu)\b/, text);
 });

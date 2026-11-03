@@ -46,7 +46,7 @@ test('demo API applies the same validation as the server', async () => {
   const { id } = await api('POST', 'api/submissions');
 
   assert.equal((await failure(api('PUT', `api/submissions/${id}/answers/years_using`, { value: 'martian' }))).status, 400);
-  assert.equal((await failure(api('PUT', `api/submissions/${id}/answers/nps`, { value: 11 }))).status, 400);
+  assert.equal((await failure(api('PUT', `api/submissions/${id}/answers/recommend`, { value: 6 }))).status, 400);
   assert.equal((await failure(api('PUT', `api/submissions/${id}/answers/nope`, { value: 'x' }))).status, 404);
   assert.equal((await failure(api('PUT', `api/submissions/${id}/answers/years_using`, { value: null }))).status, 400);
   assert.deepEqual((await api('GET', `api/submissions/${id}`)).answers, {});
@@ -105,15 +105,17 @@ test('demo API works without usable localStorage (falls back to memory)', async 
 test('demo API follows the same short path for people who do not use Inbox.lv', async () => {
   const api = newDemo();
   const { id } = await api('POST', 'api/submissions');
+  await api('PUT', `api/submissions/${id}/answers/age_group`, { value: '25_34' });
+  await api('PUT', `api/submissions/${id}/answers/gender`, { value: 'other' });
   await api('PUT', `api/submissions/${id}/answers/years_using`, { value: 'not_using' });
 
-  assert.equal((await failure(api('PUT', `api/submissions/${id}/answers/nps`, { value: 9 }))).status, 400);
+  assert.equal((await failure(api('PUT', `api/submissions/${id}/answers/recommend`, { value: 4 }))).status, 400);
   await api('PUT', `api/submissions/${id}/answers/not_using_reason`, { value: 'No need' });
-  await api('POST', `api/submissions/${id}/complete`); // nothing else is required
+  await api('POST', `api/submissions/${id}/complete`); // nothing else is required once the demographics are answered
 
   const sub = await api('GET', `api/submissions/${id}`);
   assert.equal(sub.completed, true);
-  assert.deepEqual(sub.answers, { years_using: 'not_using', not_using_reason: 'No need' });
+  assert.deepEqual(sub.answers, { age_group: '25_34', gender: 'other', years_using: 'not_using', not_using_reason: 'No need' });
 });
 
 test('demo API drops answers that no longer belong to the path when the first answer changes', async () => {
@@ -121,7 +123,7 @@ test('demo API drops answers that no longer belong to the path when the first an
   const { id } = await api('POST', 'api/submissions');
   const put = (qid, value) => api('PUT', `api/submissions/${id}/answers/${qid}`, { value });
   await put('years_using', '2');
-  await put('nps', 9);
+  await put('recommend', 4);
   await put('years_using', 'not_using');
   assert.deepEqual((await api('GET', `api/submissions/${id}`)).answers, { years_using: 'not_using' });
   await put('not_using_reason', 'No need');

@@ -21,18 +21,7 @@ export function aggregate(db, config) {
       const distribution = [];
       for (let i = q.min; i <= q.max; i++) distribution.push({ value: i, count: values.filter((v) => v === i).length });
       const average = values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
-      const out = { ...base, min: q.min, max: q.max, average, distribution };
-      if (q.id === 'nps' && values.length) {
-        const promoters = values.filter((v) => v >= 9).length;
-        const detractors = values.filter((v) => v <= 6).length;
-        out.nps = {
-          promoters,
-          passives: values.length - promoters - detractors,
-          detractors,
-          score: Math.round(((promoters - detractors) / values.length) * 100),
-        };
-      }
-      return out;
+      return { ...base, min: q.min, max: q.max, average, distribution };
     }
 
     // text: newest first

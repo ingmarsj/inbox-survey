@@ -10,12 +10,78 @@
   },
   "questions": [
     {
+      "id": "age_group",
+      "section": "Par Jums",
+      "type": "single",
+      "required": true,
+      "title": "Kurā vecuma grupā Jūs esat?",
+      "options": [
+        {
+          "value": "under_18",
+          "label": "Jaunāks par 18"
+        },
+        {
+          "value": "18_24",
+          "label": "18–24"
+        },
+        {
+          "value": "25_34",
+          "label": "25–34"
+        },
+        {
+          "value": "35_44",
+          "label": "35–44"
+        },
+        {
+          "value": "45_54",
+          "label": "45–54"
+        },
+        {
+          "value": "55_64",
+          "label": "55–64"
+        },
+        {
+          "value": "65_plus",
+          "label": "65 un vairāk"
+        },
+        {
+          "value": "no_answer",
+          "label": "Nevēlos norādīt"
+        }
+      ]
+    },
+    {
+      "id": "gender",
+      "section": "Par Jums",
+      "type": "single",
+      "required": true,
+      "title": "Kāds ir Jūsu dzimums?",
+      "options": [
+        {
+          "value": "female",
+          "label": "Sieviete"
+        },
+        {
+          "value": "male",
+          "label": "Vīrietis"
+        },
+        {
+          "value": "other",
+          "label": "Cits"
+        },
+        {
+          "value": "no_answer",
+          "label": "Nevēlos norādīt"
+        }
+      ]
+    },
+    {
       "id": "years_using",
-      "section": "Par jums",
+      "section": "Par Jums",
       "type": "single",
       "display": "dropdown",
       "required": true,
-      "title": "Cik ilgi jūs jau lietojat Inbox.lv?",
+      "title": "Cik ilgi Jūs jau lietojat Inbox.lv?",
       "placeholder": "Izvēlieties",
       "options": [
         {
@@ -54,12 +120,12 @@
     },
     {
       "id": "not_using_reason",
-      "section": "Par jums",
+      "section": "Par Jums",
       "type": "text",
       "required": false,
       "maxLength": 1000,
       "multiline": true,
-      "title": "Kāpēc jūs nelietojat Inbox.lv?",
+      "title": "Kāpēc Jūs nelietojat Inbox.lv?",
       "hint": "Pastāstiet saviem vārdiem.",
       "placeholder": "Rakstiet brīvi",
       "visibleIf": {
@@ -73,7 +139,7 @@
       "type": "multi",
       "required": true,
       "maxSelect": 5,
-      "title": "Kur jūs labāk vēlētos uzzināt jaunumus par Inbox.lv?",
+      "title": "Kur Jūs labāk vēlētos uzzināt jaunumus par Inbox.lv?",
       "hint": "Var izvēlēties vairākus.",
       "options": [
         {
@@ -140,7 +206,7 @@
       "section": "Atsauksmes",
       "type": "single",
       "required": true,
-      "title": "Kur jums ērtāk atstāt atsauksmi par Inbox.lv?",
+      "title": "Kur Jums ērtāk atstāt atsauksmi par Inbox.lv?",
       "options": [
         {
           "value": "in_app_survey",
@@ -171,13 +237,35 @@
     {
       "id": "feedback_ease",
       "section": "Atsauksmes",
-      "type": "scale",
+      "type": "single",
       "required": true,
-      "min": 1,
-      "max": 5,
-      "title": "Cik viegli šobrīd ir mums nodot savu viedokli?",
-      "minLabel": "Ļoti grūti",
-      "maxLabel": "Ļoti viegli",
+      "title": "Ja vajadzētu, cik viegli Jums būtu mums atstāt ieteikumus/atsauksmi?",
+      "options": [
+        {
+          "value": "very_easy",
+          "label": "Ļoti viegli"
+        },
+        {
+          "value": "fairly_easy",
+          "label": "Drīzāk viegli"
+        },
+        {
+          "value": "neutral",
+          "label": "Ne viegli, ne grūti"
+        },
+        {
+          "value": "fairly_hard",
+          "label": "Drīzāk grūti"
+        },
+        {
+          "value": "very_hard",
+          "label": "Ļoti grūti"
+        },
+        {
+          "value": "no_need",
+          "label": "Nesaskatu nepieciešamību"
+        }
+      ],
       "visibleIf": {
         "question": "years_using",
         "notEquals": "not_using"
@@ -190,7 +278,7 @@
       "required": true,
       "min": 1,
       "max": 5,
-      "title": "Cik jūs kopumā esat apmierināti ar Inbox.lv?",
+      "title": "Cik Jūs kopumā esat apmierināti ar Inbox.lv?",
       "minLabel": "Neapmierināts",
       "maxLabel": "Ļoti apmierināts",
       "visibleIf": {
@@ -199,13 +287,13 @@
       }
     },
     {
-      "id": "nps",
+      "id": "recommend",
       "section": "Atsauksmes",
       "type": "scale",
       "required": true,
-      "min": 0,
-      "max": 10,
-      "title": "Cik ticams, ka jūs ieteiktu Inbox.lv draugam vai kolēģim?",
+      "min": 1,
+      "max": 5,
+      "title": "Cik ticams, ka Jūs ieteiktu Inbox.lv draugam vai kolēģim?",
       "minLabel": "Noteikti ne",
       "maxLabel": "Noteikti jā",
       "visibleIf": {
@@ -220,7 +308,7 @@
       "required": false,
       "maxLength": 1000,
       "multiline": true,
-      "title": "Kas jums Inbox.lv šobrīd traucē visvairāk?",
+      "title": "Kas Jums Inbox.lv šobrīd traucē visvairāk?",
       "placeholder": "Rakstiet brīvi",
       "visibleIf": {
         "question": "years_using",

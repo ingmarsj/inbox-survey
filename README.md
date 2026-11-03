@@ -7,7 +7,7 @@ A minimalist, mobile-first survey for Inbox.lv user events. Respondents tap "Sā
 ## Features
 
 - One question per screen, with a progress counter, a "Back" button and keyboard shortcuts (digits pick an answer, Enter continues).
-- Question types: single choice (buttons or dropdown), multiple choice, scale (e.g. 1–5 or NPS 0–10) and free text, with optional conditional paths (for example a short path for non-users).
+- Question types: single choice (buttons or dropdown), multiple choice, scale (e.g. 1–5) and free text, with optional conditional paths (for example a short path for non-users).
 - Answers are saved after every question, so a half-finished survey is not lost. Reloading resumes where the respondent stopped, and flaky Wi-Fi is handled by retrying in the background.
 - Anonymous: only a random submission ID is stored, no personal data.
 - Live results page and CSV export, protected by a secret token.
