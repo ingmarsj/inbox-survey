@@ -222,9 +222,9 @@ test('results aggregate counts, averages and texts', async () => {
   const s = await startServer();
   try {
     // three finished respondents and one who stopped halfway
-    await submitAll(s, { years_using: '1', recommend: 5, feedback_channel: 'in_app_survey', news_channel: ['email'], satisfaction: 5, one_word: 'ātrs' });
-    await submitAll(s, { years_using: '2', recommend: 4, feedback_channel: 'email_reply', news_channel: ['email', 'website'], satisfaction: 4, one_word: 'ērts' });
-    await submitAll(s, { years_using: '10_plus', recommend: 1, feedback_channel: 'support_chat', news_channel: ['social'], satisfaction: 2, one_word: 'lēns' });
+    await submitAll(s, { years_using: '1', recommend: 5, feedback_channel: ['email_survey'], news_channel: ['email'], satisfaction: 5, one_word: 'ātrs' });
+    await submitAll(s, { years_using: '2', recommend: 4, feedback_channel: ['support_team'], news_channel: ['email', 'in_app'], satisfaction: 4, one_word: 'ērts' });
+    await submitAll(s, { years_using: '10_plus', recommend: 1, feedback_channel: ['mobile_app_form'], news_channel: ['social'], satisfaction: 2, one_word: 'lēns' });
     const partial = await s.newSubmission();
     await s.answer(partial, 'years_using', '2');
     await s.answer(partial, 'recommend', 3);
@@ -237,13 +237,13 @@ test('results aggregate counts, averages and texts', async () => {
     assert.equal(channel.answered, 3);
     assert.deepEqual(
       Object.fromEntries(channel.options.filter((o) => o.count).map((o) => [o.value, o.count])),
-      { in_app_survey: 1, email_reply: 1, support_chat: 1 },
+      { email_survey: 1, support_team: 1, mobile_app_form: 1 },
     );
 
     const news = q('news_channel');
     assert.equal(news.answered, 3);
     assert.equal(news.options.find((o) => o.value === 'email').count, 2);
-    assert.equal(news.options.find((o) => o.value === 'website').count, 1);
+    assert.equal(news.options.find((o) => o.value === 'in_app').count, 1);
 
     const rec = q('recommend');
     assert.equal(rec.answered, 4);
@@ -465,6 +465,67 @@ test('results keep the "why not" answers apart from the users answers', async ()
     assert.equal(q('recommend').answered, 1, 'the non-user was never asked');
     assert.equal(q('years_using').options.find((o) => o.value === 'not_using').count, 1);
     assert.deepEqual(results.totals, { started: 2, completed: 2 });
+  } finally {
+    await s.stop();
+  }
+});
+
+/* ---------- "Cits": an option with a text box ---------- */
+
+test('"Cits" in the news question takes a write-in text, which only exists while "Cits" is selected', async () => {
+  const s = await startServer();
+  try {
+    const id = await s.newSubmission();
+    const answers = async () => (await s.call('GET', `/api/submissions/${id}`)).json.answers;
+
+    await s.answer(id, 'years_using', '2');
+    // the text box is not part of the path until "Cits" is chosen
+    assert.equal((await s.answer(id, 'news_channel_other', 'My blog')).status, 400);
+    await s.answer(id, 'news_channel', ['email']);
+    assert.equal((await s.answer(id, 'news_channel_other', 'My blog')).status, 400);
+
+    await s.answer(id, 'news_channel', ['email', 'other']);
+    assert.equal((await s.answer(id, 'news_channel_other', '  My blog  ')).status, 200);
+    assert.equal((await answers()).news_channel_other, 'My blog', 'trimmed');
+    assert.equal((await s.answer(id, 'news_channel_other', 'x'.repeat(201))).status, 400);
+
+    await s.answer(id, 'news_channel', ['email']); // unselecting "Cits" removes the text
+    assert.equal((await answers()).news_channel_other, undefined);
+    assert.deepEqual((await answers()).news_channel, ['email']);
+  } finally {
+    await s.stop();
+  }
+});
+
+test('the write-in text is also removed when a non-user switch hides the whole news question', async () => {
+  const s = await startServer();
+  try {
+    const id = await s.newSubmission();
+    await s.answer(id, 'years_using', '3');
+    await s.answer(id, 'news_channel', ['other']);
+    await s.answer(id, 'news_channel_other', 'Telegram');
+    await s.answer(id, 'years_using', 'not_using');
+    const answers = (await s.call('GET', `/api/submissions/${id}`)).json.answers;
+    assert.deepEqual(answers, { years_using: 'not_using' }, 'the news answer and its text are gone, not just the first');
+    assert.deepEqual(
+      s.db.prepare('SELECT question_id FROM answers WHERE submission_id = ?').all(id).map((r) => r.question_id),
+      ['years_using'],
+    );
+  } finally {
+    await s.stop();
+  }
+});
+
+test('feedback channels accept several answers, and the write-in text shows up in the results', async () => {
+  const s = await startServer();
+  try {
+    await submitAll(s, { years_using: '2', feedback_channel: ['email_survey', 'social'], news_channel: ['other'], news_channel_other: 'Telegram' });
+    await submitAll(s, { years_using: '2', feedback_channel: ['social'] });
+    const results = (await s.call('GET', `/api/results?token=${TOKEN}`)).json;
+    const q = (id) => results.questions.find((x) => x.id === id);
+    const counts = Object.fromEntries(q('feedback_channel').options.map((o) => [o.value, o.count]));
+    assert.deepEqual(counts, { email_survey: 1, support_team: 0, mobile_app_form: 0, social: 2 });
+    assert.deepEqual(q('news_channel_other').texts, [{ text: 'Telegram' }]);
   } finally {
     await s.stop();
   }

@@ -45,8 +45,9 @@ export function validateAnswer(q, raw) {
 
 /**
  * True when the question is on this respondent's path, given the answers so far.
- * A question may carry `visibleIf: { question, equals }` or `visibleIf: { question, notEquals }`
- * that refers to an earlier single-choice question.
+ * A question may carry `visibleIf: { question, equals }` or `{ question, notEquals }` (an earlier
+ * single-choice question), or `{ question, includes }` (an earlier multiple-choice question that
+ * must contain that option).
  */
 export function isQuestionVisible(q, answers) {
   const rule = q.visibleIf;
@@ -54,10 +55,26 @@ export function isQuestionVisible(q, answers) {
   const given = answers[rule.question];
   if (rule.equals !== undefined) return given === rule.equals;
   if (rule.notEquals !== undefined) return given !== rule.notEquals;
+  if (rule.includes !== undefined) return Array.isArray(given) && given.includes(rule.includes);
   return true;
 }
 
-/** Ids of answered questions that are no longer on the respondent's path (they must be dropped). */
+/**
+ * Ids of answered questions that are no longer on the respondent's path (they must be dropped).
+ * Dropping an answer can hide questions that depended on it, so this repeats until nothing changes.
+ */
 export function hiddenAnsweredIds(questions, answers) {
-  return questions.filter((q) => answers[q.id] !== undefined && !isQuestionVisible(q, answers)).map((q) => q.id);
+  const remaining = { ...answers };
+  const hidden = [];
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const q of questions) {
+      if (remaining[q.id] !== undefined && !isQuestionVisible(q, remaining)) {
+        delete remaining[q.id];
+        hidden.push(q.id);
+        changed = true;
+      }
+    }
+  }
+  return hidden;
 }

@@ -99,6 +99,9 @@ Everything lives in [`questions.json`](questions.json).
 - `"display": "dropdown"` renders a `single` question as a dropdown.
 - `"required": true` means the respondent cannot continue without an answer.
 - `"visibleIf": { "question": "years_using", "equals": "not_using" }` (or `"notEquals"`) shows a question only on some paths. It may refer to an earlier single-choice question that is itself always shown. The survey uses this to give people who do not use Inbox.lv a short path (why not, associations, free comment). Answers that stop belonging to the path when someone changes an earlier answer are dropped, and hidden questions are never required.
+- `"visibleIf": { "question": "news_channel", "includes": "other" }` works like `equals` / `notEquals`, but for an earlier **multiple-choice** question that must contain that option. A question may depend on a question that is itself conditional; when an answer is removed, everything that depended on it is removed too.
+- A "write-in" option such as "Cits": give the option `"writeIn": "<id>"` and add a text question with that id, `"inline": true` and `visibleIf { "question": <the multiple-choice question>, "includes": <the option> }`. The text box appears under the option while it is selected, the typed text is stored as its own answer (and shows up in the results and the CSV), and it is removed again if the option is unselected. Inline questions never get a screen of their own.
+- `"keyHint": false` hides the "Padoms: ciparu taustiņi…" keyboard tip under the answers of that question on desktop.
 - Do not rename a question `id` once answers have been collected: answers are linked by `id`.
 
 After editing: restart the Node server, **and** for Supabase run `npm run build:supabase` and execute the regenerated `supabase/seed-questions.sql`, then publish the pages again if the front end changed. A test fails if the checked-in seed is out of date.

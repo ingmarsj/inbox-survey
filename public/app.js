@@ -140,7 +140,8 @@ function questions() {
 
 /** The questions this respondent will see, in order. It changes when the first answers change. */
 function visibleQuestions() {
-  return questions().filter((q) => isQuestionVisible(q, state.answers));
+  // "inline" questions (the text box of a "Cits" option) are shown inside their parent question, not as screens.
+  return questions().filter((q) => !q.inline && isQuestionVisible(q, state.answers));
 }
 
 /** Drops answers (and unsent saves) for questions that fell off the path after an answer changed. */
@@ -250,7 +251,7 @@ function renderQuestion() {
   }
 
   const counter = `${position + 1} / ${path.length}`;
-  const usesKeys = q.type === 'multi' || q.type === 'scale' || (q.type === 'single' && q.display !== 'dropdown');
+  const usesKeys = q.keyHint !== false && (q.type === 'multi' || q.type === 'scale' || (q.type === 'single' && q.display !== 'dropdown'));
   render(
     [
       el('p', { class: 'eyebrow' }, q.section ? `${q.section} · ${counter}` : counter),
@@ -323,9 +324,14 @@ function dropdownSingle(q, next) {
 function multiOptions(q, next) {
   const selected = new Set(state.answers[q.id] ?? []);
   const list = el('div', { class: 'options', role: 'group', 'aria-label': q.title });
+  const writeIns = []; // text boxes that belong to options such as "Cits"
   const sync = () => {
     next.disabled = q.required && selected.size === 0;
     for (const b of list.querySelectorAll('.option')) b.setAttribute('aria-checked', String(selected.has(b.dataset.value)));
+    for (const w of writeIns) {
+      w.input.hidden = !selected.has(w.value);
+      if (w.input.hidden) w.input.value = '';
+    }
   };
   q.options.forEach((o, i) => {
     const b = optionButton('checkbox', o.value, o.label, { icon: o.icon, key: i + 1 });
@@ -334,10 +340,36 @@ function multiOptions(q, next) {
       const value = q.options.map((x) => x.value).filter((v) => selected.has(v)); // keep a stable order
       if (value.length) state.answers[q.id] = value;
       else delete state.answers[q.id];
+      pruneHiddenAnswers(); // drops the typed text of an option that was just unselected
       queueSave(q.id, value.length ? value : null);
       sync();
     });
-    list.append(b);
+
+    const writeQ = o.writeIn ? questions().find((x) => x.id === o.writeIn) : null;
+    if (!writeQ) {
+      list.append(b);
+      return;
+    }
+    const input = el('input', {
+      class: 'field write-in',
+      type: 'text',
+      maxlength: writeQ.maxLength,
+      placeholder: writeQ.placeholder ?? '',
+      'aria-label': writeQ.title,
+      autocomplete: 'off',
+      hidden: true,
+    });
+    input.value = state.answers[writeQ.id] ?? '';
+    const save = () => queueSave(writeQ.id, input.value.trim() || null);
+    input.addEventListener('input', () => {
+      const text = input.value.trim();
+      if (text) state.answers[writeQ.id] = text;
+      else delete state.answers[writeQ.id];
+    });
+    input.addEventListener('blur', save);
+    next.addEventListener('click', save, { capture: true }); // save on the way out even if blur never fires
+    writeIns.push({ value: o.value, input });
+    list.append(el('div', { class: 'option-group' }, b, input));
   });
   queueMicrotask(sync);
   return list;

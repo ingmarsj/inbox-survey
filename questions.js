@@ -35,23 +35,50 @@ export function loadConfig(file) {
     }
   }
   checkVisibilityRules(config.questions);
+  checkWriteIns(config.questions);
   return config;
 }
 
-/** A rule may only look at an earlier single-choice question that is always shown. */
+/**
+ * A rule may only look at an earlier question (so there are no cycles): a single-choice one for
+ * "equals" / "notEquals", a multiple-choice one for "includes".
+ */
 function checkVisibilityRules(questions) {
   questions.forEach((q, index) => {
     const rule = q.visibleIf;
     if (rule === undefined) return;
     const where = `questions.json: question "${q.id}" visibleIf`;
-    const modes = ['equals', 'notEquals'].filter((key) => rule[key] !== undefined);
-    if (modes.length !== 1) throw new Error(`${where}: use exactly one of "equals" or "notEquals"`);
+    const modes = ['equals', 'notEquals', 'includes'].filter((key) => rule[key] !== undefined);
+    if (modes.length !== 1) throw new Error(`${where}: use exactly one of "equals", "notEquals" or "includes"`);
+    const mode = modes[0];
     const source = questions.slice(0, index).find((x) => x.id === rule.question);
     if (!source) throw new Error(`${where}: "${rule.question}" must be an earlier question`);
-    if (source.type !== 'single') throw new Error(`${where}: "${source.id}" must be a single-choice question`);
-    if (source.visibleIf !== undefined) throw new Error(`${where}: "${source.id}" must not be conditional itself`);
-    if (!source.options.some((o) => o.value === rule[modes[0]])) {
-      throw new Error(`${where}: "${rule[modes[0]]}" is not an option of "${source.id}"`);
+    const wanted = mode === 'includes' ? 'multi' : 'single';
+    if (source.type !== wanted) throw new Error(`${where}: "${source.id}" must be a ${wanted === 'multi' ? 'multiple' : 'single'}-choice question for "${mode}"`);
+    if (!source.options.some((o) => o.value === rule[mode])) {
+      throw new Error(`${where}: "${rule[mode]}" is not an option of "${source.id}"`);
     }
   });
+}
+
+/** An "inline" question has no screen of its own: it is the text box of a "write-in" option such as "Cits". */
+function checkWriteIns(questions) {
+  const byId = new Map(questions.map((q) => [q.id, q]));
+  for (const q of questions) {
+    if (q.inline) {
+      const where = `questions.json: question "${q.id}"`;
+      if (q.type !== 'text') throw new Error(`${where}: an inline question must be a text question`);
+      const owner = questions.find((p) => (p.options ?? []).some((o) => o.writeIn === q.id));
+      if (!owner) throw new Error(`${where}: inline, but no option has "writeIn": "${q.id}"`);
+      const option = owner.options.find((o) => o.writeIn === q.id);
+      if (q.visibleIf?.question !== owner.id || q.visibleIf?.includes !== option.value) {
+        throw new Error(`${where}: must have visibleIf { "question": "${owner.id}", "includes": "${option.value}" }`);
+      }
+    }
+    for (const o of q.options ?? []) {
+      if (o.writeIn === undefined) continue;
+      if (q.type !== 'multi') throw new Error(`questions.json: question "${q.id}": "writeIn" works on multiple-choice options only`);
+      if (!byId.get(o.writeIn)?.inline) throw new Error(`questions.json: question "${q.id}": "writeIn" must name an inline text question`);
+    }
+  }
 }

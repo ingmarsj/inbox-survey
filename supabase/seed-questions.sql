@@ -48,10 +48,6 @@ values (true, $survey_json$
         {
           "value": "65_plus",
           "label": "65 un vairāk"
-        },
-        {
-          "value": "no_answer",
-          "label": "Nevēlos norādīt"
         }
       ]
     },
@@ -69,10 +65,6 @@ values (true, $survey_json$
         {
           "value": "male",
           "label": "Vīrietis"
-        },
-        {
-          "value": "other",
-          "label": "Cits"
         },
         {
           "value": "no_answer",
@@ -153,11 +145,7 @@ values (true, $survey_json$
         },
         {
           "value": "in_app",
-          "label": "Ziņojums lietotnē"
-        },
-        {
-          "value": "website",
-          "label": "Jaunumu lapā mājaslapā"
+          "label": "Ziņojums aplikācijā"
         },
         {
           "value": "social",
@@ -166,11 +154,31 @@ values (true, $survey_json$
         {
           "value": "meetings",
           "label": "Klātienes vai online pasākumos"
+        },
+        {
+          "value": "other",
+          "label": "Cits",
+          "writeIn": "news_channel_other"
         }
       ],
       "visibleIf": {
         "question": "years_using",
         "notEquals": "not_using"
+      }
+    },
+    {
+      "id": "news_channel_other",
+      "section": "Jaunumi",
+      "type": "text",
+      "inline": true,
+      "required": false,
+      "maxLength": 200,
+      "multiline": false,
+      "title": "Cits: kur vēl vēlaties uzzināt jaunumus par Inbox.lv?",
+      "placeholder": "Ierakstiet, kur",
+      "visibleIf": {
+        "question": "news_channel",
+        "includes": "other"
       }
     },
     {
@@ -180,10 +188,6 @@ values (true, $survey_json$
       "required": true,
       "title": "Cik bieži vēlaties saņemt jaunumus par Inbox.lv?",
       "options": [
-        {
-          "value": "weekly",
-          "label": "Reizi nedēļā"
-        },
         {
           "value": "monthly",
           "label": "Reizi mēnesī"
@@ -209,25 +213,23 @@ values (true, $survey_json$
     {
       "id": "feedback_channel",
       "section": "Atsauksmes",
-      "type": "single",
+      "type": "multi",
       "required": true,
+      "maxSelect": 4,
       "title": "Kur Jums ērtāk atstāt atsauksmi par Inbox.lv?",
+      "hint": "Var izvēlēties vairākus.",
       "options": [
         {
-          "value": "in_app_survey",
-          "label": "Īsa anketa Inbox.lv"
+          "value": "email_survey",
+          "label": "Īsa anketa vēstulē e-pastā"
         },
         {
-          "value": "email_reply",
-          "label": "Atbilde uz e-pastu"
+          "value": "support_team",
+          "label": "Sarunā ar atbalsta komandu"
         },
         {
-          "value": "support_chat",
-          "label": "Tērzēšana ar atbalstu"
-        },
-        {
-          "value": "product_owner",
-          "label": "Tieša saruna ar Inbox.lv komandu"
+          "value": "mobile_app_form",
+          "label": "Atsauksmju forma mobīlajā aplikācijā"
         },
         {
           "value": "social",
@@ -244,7 +246,7 @@ values (true, $survey_json$
       "section": "Atsauksmes",
       "type": "single",
       "required": true,
-      "title": "Ja vajadzētu, cik viegli Jums būtu mums atstāt ieteikumus/atsauksmi?",
+      "title": "Novērtējiet, cik viegli, Jūsuprāt, ir atstāt ieteikumus/atsauksmi par Inbox.lv pakalpojumiem?",
       "options": [
         {
           "value": "very_easy",
@@ -255,8 +257,8 @@ values (true, $survey_json$
           "label": "Drīzāk viegli"
         },
         {
-          "value": "neutral",
-          "label": "Ne viegli, ne grūti"
+          "value": "hard_to_say",
+          "label": "Grūti pateikt"
         },
         {
           "value": "fairly_hard",
@@ -289,7 +291,8 @@ values (true, $survey_json$
       "visibleIf": {
         "question": "years_using",
         "notEquals": "not_using"
-      }
+      },
+      "keyHint": false
     },
     {
       "id": "recommend",
@@ -304,7 +307,8 @@ values (true, $survey_json$
       "visibleIf": {
         "question": "years_using",
         "notEquals": "not_using"
-      }
+      },
+      "keyHint": false
     },
     {
       "id": "pain_point",

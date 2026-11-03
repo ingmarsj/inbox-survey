@@ -365,3 +365,9 @@ select.field {
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
+
+/* ---------- "Cits": an option with a text box under it ---------- */
+
+.option-group { display: grid; gap: 8px; }
+.options .write-in { margin-top: 0; }
+.write-in[hidden] { display: none; }

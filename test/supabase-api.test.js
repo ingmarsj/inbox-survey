@@ -149,7 +149,7 @@ test('an answer can be cleared with null, and a non-user gets the short path', a
   assert.equal((await api('GET', `api/submissions/${id}`)).answers.pain_point, undefined);
 
   await put('age_group', '25_34');
-  await put('gender', 'other');
+  await put('gender', 'female');
   await put('years_using', 'not_using');
   assert.deepEqual(await api('POST', `api/submissions/${id}/complete`), { ok: true });
 });

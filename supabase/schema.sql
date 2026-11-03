@@ -145,7 +145,8 @@ begin
 end;
 $$;
 
--- Is the question on this respondent's path? Mirrors isQuestionVisible() in public/validate.js.
+-- Is the question on this respondent's path? Mirrors isQuestionVisible() in public/validate.js
+-- (visibleIf with equals / notEquals / includes).
 create or replace function public._survey_visible(q jsonb, answers jsonb)
 returns boolean
 language sql
@@ -158,6 +159,11 @@ as $$
       then (answers -> (q->'visibleIf'->>'question')) is not distinct from (q->'visibleIf'->'equals')
     when (q->'visibleIf') ? 'notEquals'
       then (answers -> (q->'visibleIf'->>'question')) is distinct from (q->'visibleIf'->'notEquals')
+    when (q->'visibleIf') ? 'includes'
+      then coalesce(
+        jsonb_typeof(answers -> (q->'visibleIf'->>'question')) = 'array'
+        and (answers -> (q->'visibleIf'->>'question')) @> jsonb_build_array(q->'visibleIf'->'includes'),
+        false)
     else true
   end;
 $$;
@@ -251,6 +257,7 @@ declare
   other jsonb;
   current_answers jsonb;
   checked jsonb;
+  changed boolean;
 begin
   -- Lock the submission so two saves for the same respondent cannot interleave.
   select * into sub from public.survey_submissions where id = p_id for update;
@@ -292,10 +299,17 @@ begin
     current_answers := current_answers || jsonb_build_object(p_question, checked->'value');
   end if;
 
-  for other in select e.value from jsonb_array_elements(cfg->'questions') e loop
-    if current_answers ? (other->>'id') and not public._survey_visible(other, current_answers) then
-      delete from public.survey_answers where submission_id = p_id and question_id = other->>'id';
-    end if;
+  -- Removing an answer can hide further questions that depended on it, so repeat until nothing changes.
+  loop
+    changed := false;
+    for other in select e.value from jsonb_array_elements(cfg->'questions') e loop
+      if current_answers ? (other->>'id') and not public._survey_visible(other, current_answers) then
+        delete from public.survey_answers where submission_id = p_id and question_id = other->>'id';
+        current_answers := current_answers - (other->>'id');
+        changed := true;
+      end if;
+    end loop;
+    exit when not changed;
   end loop;
 end;
 $$;

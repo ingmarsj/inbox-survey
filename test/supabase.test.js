@@ -101,11 +101,21 @@ test('SQL validation agrees with the JavaScript validation for every question an
 
 test('SQL visibility rules agree with the JavaScript ones', async () => {
   const { isQuestionVisible } = await import('../questions.js');
-  for (const years of [undefined, 'not_using', 'under_1', '3']) {
-    const answers = years === undefined ? {} : { years_using: years };
+  const situations = [
+    {},
+    { years_using: 'not_using' },
+    { years_using: 'under_1' },
+    { years_using: '3' },
+    { years_using: '3', news_channel: ['other'] },
+    { years_using: '3', news_channel: ['email', 'other'] },
+    { years_using: '3', news_channel: ['email'] },
+    { years_using: '3', news_channel: [] },
+    { years_using: '3', news_channel: 'other' }, // a stale single value from an older version of the question
+  ];
+  for (const answers of situations) {
     for (const q of config.questions) {
       const actual = await rpc('_survey_visible', JSON.stringify(q), JSON.stringify(answers));
-      assert.equal(actual, isQuestionVisible(q, answers), `${q.id} with ${years}`);
+      assert.equal(actual, isQuestionVisible(q, answers), `${q.id} with ${JSON.stringify(answers)}`);
     }
   }
 });
@@ -196,6 +206,35 @@ test('optional questions may stay empty and the survey still completes', async (
 
 /* ---------- the short path for people who do not use Inbox.lv ---------- */
 
+test('"Cits": the write-in text only exists while "Cits" is selected, and goes with its question', async () => {
+  const id = await create();
+  await save(id, 'years_using', '2');
+  await assert.rejects(save(id, 'news_channel_other', 'My blog'), /survey_not_on_path/);
+
+  await save(id, 'news_channel', ['email', 'other']);
+  await save(id, 'news_channel_other', '  My blog  ');
+  assert.equal((await answersOf(id)).news_channel_other, 'My blog');
+  await assert.rejects(save(id, 'news_channel_other', 'x'.repeat(201)), /survey_invalid: Text is too long/);
+
+  await save(id, 'news_channel', ['email']);
+  assert.equal((await answersOf(id)).news_channel_other, undefined, 'unselecting "Cits" removes the text');
+
+  // the cascade: hiding the whole news question also removes the text that depended on it
+  await save(id, 'news_channel', ['other']);
+  await save(id, 'news_channel_other', 'Telegram');
+  await save(id, 'years_using', 'not_using');
+  assert.deepEqual(await answersOf(id), { years_using: 'not_using' });
+});
+
+test('feedback channels take several answers', async () => {
+  const id = await create();
+  await save(id, 'years_using', '2');
+  await save(id, 'feedback_channel', ['email_survey', 'social', 'email_survey']);
+  assert.deepEqual((await answersOf(id)).feedback_channel, ['email_survey', 'social'], 'duplicates are dropped');
+  await assert.rejects(save(id, 'feedback_channel', 'social'), /survey_invalid: Invalid answer/);
+  await assert.rejects(save(id, 'feedback_channel', ['email_reply']), /survey_invalid: Invalid answer/, 'an option that was removed');
+});
+
 test('non-users have a short path: demographics, first answer, then reason and free text', async () => {
   const id = await create();
   await save(id, 'age_group', '25_34');
@@ -246,8 +285,8 @@ test('the results export needs the secret token', async () => {
 });
 
 test('the export feeds the same aggregation as the Node server', async () => {
-  await submitAll({ years_using: '1', recommend: 5, feedback_channel: 'in_app_survey', news_channel: ['email'], satisfaction: 5, one_word: 'ātrs' });
-  await submitAll({ years_using: '2', recommend: 4, feedback_channel: 'email_reply', news_channel: ['email', 'website'], satisfaction: 4, one_word: 'ērts' });
+  await submitAll({ years_using: '1', recommend: 5, feedback_channel: ['email_survey'], news_channel: ['email'], satisfaction: 5, one_word: 'ātrs' });
+  await submitAll({ years_using: '2', recommend: 4, feedback_channel: ['support_team'], news_channel: ['email', 'in_app'], satisfaction: 4, one_word: 'ērts' });
   await submitAll({ years_using: 'not_using', not_using_reason: 'No need' });
   const partial = await create();
   await save(partial, 'years_using', '2');

@@ -106,7 +106,7 @@ test('demo API follows the same short path for people who do not use Inbox.lv', 
   const api = newDemo();
   const { id } = await api('POST', 'api/submissions');
   await api('PUT', `api/submissions/${id}/answers/age_group`, { value: '25_34' });
-  await api('PUT', `api/submissions/${id}/answers/gender`, { value: 'other' });
+  await api('PUT', `api/submissions/${id}/answers/gender`, { value: 'female' });
   await api('PUT', `api/submissions/${id}/answers/years_using`, { value: 'not_using' });
 
   assert.equal((await failure(api('PUT', `api/submissions/${id}/answers/recommend`, { value: 4 }))).status, 400);
@@ -115,7 +115,7 @@ test('demo API follows the same short path for people who do not use Inbox.lv', 
 
   const sub = await api('GET', `api/submissions/${id}`);
   assert.equal(sub.completed, true);
-  assert.deepEqual(sub.answers, { age_group: '25_34', gender: 'other', years_using: 'not_using', not_using_reason: 'No need' });
+  assert.deepEqual(sub.answers, { age_group: '25_34', gender: 'female', years_using: 'not_using', not_using_reason: 'No need' });
 });
 
 test('demo API drops answers that no longer belong to the path when the first answer changes', async () => {
@@ -129,4 +129,24 @@ test('demo API drops answers that no longer belong to the path when the first an
   await put('not_using_reason', 'No need');
   await put('years_using', '1');
   assert.deepEqual((await api('GET', `api/submissions/${id}`)).answers, { years_using: '1' });
+});
+
+test('demo API handles the "Cits" write-in like the server', async () => {
+  const api = newDemo();
+  const { id } = await api('POST', 'api/submissions');
+  const put = (qid, value) => api('PUT', `api/submissions/${id}/answers/${qid}`, { value });
+  const answers = async () => (await api('GET', `api/submissions/${id}`)).answers;
+
+  await put('years_using', '2');
+  assert.equal((await failure(put('news_channel_other', 'Telegram'))).status, 400, 'not on the path yet');
+  await put('news_channel', ['other']);
+  await put('news_channel_other', 'Telegram');
+  assert.equal((await answers()).news_channel_other, 'Telegram');
+  await put('news_channel', ['email']);
+  assert.equal((await answers()).news_channel_other, undefined);
+
+  await put('news_channel', ['other']);
+  await put('news_channel_other', 'Telegram');
+  await put('years_using', 'not_using');
+  assert.deepEqual(await answers(), { years_using: 'not_using' });
 });

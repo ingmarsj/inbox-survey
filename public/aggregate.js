@@ -16,7 +16,10 @@ export function aggregateSubmissions(config, subs) {
 
     if (q.type === 'single' || q.type === 'multi') {
       const counts = new Map(q.options.map((o) => [o.value, 0]));
-      for (const v of values) for (const x of q.type === 'multi' ? v : [v]) counts.set(x, counts.get(x) + 1);
+      for (const v of values) {
+        // Answers saved before a question changed type or lost an option are skipped, not miscounted.
+        for (const x of q.type === 'multi' && Array.isArray(v) ? v : [v]) if (counts.has(x)) counts.set(x, counts.get(x) + 1);
+      }
       return {
         ...base,
         options: q.options.map((o) => ({ value: o.value, label: o.label, icon: o.icon ?? null, count: counts.get(o.value) })),
