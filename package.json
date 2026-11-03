@@ -3,11 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Minimalist user survey for Inbox.lv events. Node.js server, answers stored in SQLite.",
-  "engines": { "node": ">=22.13" },
+  "description": "Minimalist user survey for Inbox.lv events. Answers go to Supabase (production), a Node.js server with SQLite, or nowhere (static demo).",
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server.js",
     "build:pages": "node scripts/build-pages.mjs",
-    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.js\""
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.js\"",
+    "build:why": "node scripts/build-why.mjs",
+    "build:supabase": "node scripts/build-supabase-sql.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.14"
   }
 }

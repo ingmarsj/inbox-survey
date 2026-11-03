@@ -25,7 +25,7 @@ test('the Pages build contains the survey and switches the front end to demo mod
     for (const logo of ['img/inbox.png', 'img/inbox-white.png']) assert.ok(existsSync(path.join(dir, logo)), logo);
 
     const config = read(dir, 'config.js');
-    assert.match(config, /demo: true/);
+    assert.match(config, /backend: 'demo'/);
     assert.match(config, /questionsUrl: 'questions\.json'/);
   });
 });
@@ -66,7 +66,7 @@ test('the build is repeatable and cleans the output folder first', () => {
   });
 });
 
-test('the checked-in config.js keeps demo mode OFF for the real server', () => {
+test('the checked-in config.js uses the Node server backend', () => {
   const source = readFileSync(new URL('../public/config.js', import.meta.url), 'utf8');
-  assert.match(source, /demo: false/);
+  assert.match(source, /backend: 'server'/);
 });

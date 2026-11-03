@@ -23,6 +23,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - run: npm ci
       - run: npm test
       - run: node scripts/build-pages.mjs dist
       - uses: actions/upload-pages-artifact@v3

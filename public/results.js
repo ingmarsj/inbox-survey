@@ -1,10 +1,15 @@
-const token = new URLSearchParams(location.search).get('token') ?? '';
+import { aggregateSubmissions, submissionsToCsv } from './aggregate.js';
+
+const settings = window.SURVEY_CONFIG ?? {};
 const REFRESH_MS = 5000;
+// The token may be in the URL fragment (preferred: it is never sent to any server) or in the query string.
+const token = new URLSearchParams(location.hash.slice(1)).get('token') ?? new URLSearchParams(location.search).get('token') ?? '';
 
 const statsEl = document.getElementById('stats');
 const questionsEl = document.getElementById('questions');
 const updatedEl = document.getElementById('updated');
-document.getElementById('csv').href = `/api/export.csv?token=${encodeURIComponent(token)}`;
+const csvLink = document.getElementById('csv');
+if (settings.backend !== 'supabase') csvLink.href = `/api/export.csv?token=${encodeURIComponent(token)}`;
 
 function el(tag, props = {}, ...children) {
   const node = document.createElement(tag);
@@ -47,13 +52,50 @@ function renderQuestion(q) {
   return card;
 }
 
-async function load() {
+class Unauthorized extends Error {}
+
+let supabaseApi = null;
+let csvUrl = null;
+
+/** Results from Supabase: download the export and aggregate it here, with the same code the Node server uses. */
+async function loadFromSupabase() {
+  if (!supabaseApi) {
+    const { createSupabaseApi } = await import('./supabase-api.js');
+    supabaseApi = createSupabaseApi({ url: settings.supabaseUrl, key: settings.publishableKey });
+  }
+  let exported;
+  try {
+    exported = await supabaseApi.rpc('survey_export', { p_token: token });
+  } catch (err) {
+    if (err.status === 401) throw new Unauthorized();
+    throw err;
+  }
+  const subs = exported.submissions.map((s) => ({ id: s.id, createdAt: s.created_at, completedAt: s.completed_at, answers: s.answers }));
+
+  // The CSV is built in the browser from the same export.
+  if (csvUrl) URL.revokeObjectURL(csvUrl);
+  csvUrl = URL.createObjectURL(new Blob([submissionsToCsv(exported.config, subs)], { type: 'text/csv;charset=utf-8' }));
+  csvLink.href = csvUrl;
+  csvLink.download = 'aptauja.csv';
+
+  return aggregateSubmissions(exported.config, subs);
+}
+
+async function loadFromServer() {
   const res = await fetch(`/api/results?token=${encodeURIComponent(token)}`);
-  if (res.status === 401) {
-    questionsEl.replaceChildren(el('p', { class: 'error' }, 'Nederīga piekļuves atslēga. Izmantojiet saiti, ko izdrukāja serveris.'));
+  if (res.status === 401) throw new Unauthorized();
+  return res.json();
+}
+
+async function load() {
+  let data;
+  try {
+    data = settings.backend === 'supabase' ? await loadFromSupabase() : await loadFromServer();
+  } catch (err) {
+    if (!(err instanceof Unauthorized)) throw err;
+    questionsEl.replaceChildren(el('p', { class: 'error' }, 'Nederīga piekļuves atslēga. Izmantojiet saiti, kas paredzēta rezultātu skatīšanai.'));
     return false;
   }
-  const data = await res.json();
 
   statsEl.replaceChildren(
     el('div', { class: 'stat' }, el('b', {}, data.totals.started), el('span', {}, 'sākuši')),

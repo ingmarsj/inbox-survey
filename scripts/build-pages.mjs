@@ -30,7 +30,7 @@ export function buildPages(outDir = path.join(ROOT, 'dist')) {
   // Switch the front end to demo mode.
   writeFileSync(
     path.join(outDir, 'config.js'),
-    "window.SURVEY_CONFIG = { demo: true, questionsUrl: 'questions.json' };\n",
+    "window.SURVEY_CONFIG = { backend: 'demo', questionsUrl: 'questions.json' };\n",
   );
 
   // Tell GitHub Pages not to run Jekyll over the files.

@@ -5,7 +5,7 @@ const progressBar = document.getElementById('progress');
 const statusEl = document.getElementById('status');
 const STORE_KEY = 'inbox-survey-v1';
 const settings = window.SURVEY_CONFIG ?? {};
-let demoApi = null; // set in boot() when running as the static GitHub Pages demo
+let localApi = null; // set in boot() when the page does not talk to the Node server (demo or Supabase)
 const RETRY_MS = 3000;
 
 const state = { config: null, id: null, answers: {}, index: 0, completed: false };
@@ -39,7 +39,7 @@ function store(value) {
 }
 
 async function api(method, url, body) {
-  if (demoApi) return demoApi(method, url, body);
+  if (localApi) return localApi(method, url, body);
   let res;
   try {
     res = await fetch(url, {
@@ -452,11 +452,14 @@ async function boot() {
     history.replaceState(null, '', location.pathname);
   }
 
-  if (settings.demo) {
+  if (settings.backend === 'demo') {
     const { createDemoApi } = await import('./demo-api.js');
     const questionsUrl = settings.questionsUrl ?? 'questions.json';
-    demoApi = createDemoApi({ loadQuestions: () => fetch(questionsUrl).then((res) => res.json()) });
+    localApi = createDemoApi({ loadQuestions: () => fetch(questionsUrl).then((res) => res.json()) });
     showDemoBadge();
+  } else if (settings.backend === 'supabase') {
+    const { createSupabaseApi } = await import('./supabase-api.js');
+    localApi = createSupabaseApi({ url: settings.supabaseUrl, key: settings.publishableKey });
   }
 
   try {
