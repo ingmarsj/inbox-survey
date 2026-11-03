@@ -5,7 +5,7 @@
 // functions from supabase/schema.sql. The page only ever holds the project's publishable key.
 //
 // The output has this shape; copy the inbox-survey/ folder into the root of the site repository:
-//   <outDir>/inbox-survey/index.html, results.html, *.js, style.css, config.js, img/...
+//   <outDir>/inbox-survey/index.html, results.html, stats/index.html, *.js, style.css, config.js, img/...
 //
 // Usage: node scripts/build-why.mjs [outDir]   (default: dist-why)
 
@@ -23,10 +23,15 @@ const FILES = [
   'results.html',
   'app.js',
   'results.js',
+  'stats.js',
+  'stats-data.js',
+  'token.js',
+  'ui.js',
   'aggregate.js',
   'validate.js',
   'supabase-api.js',
   'style.css',
+  'stats/index.html',
 ];
 
 /** Only the public project URL and a publishable (anon) key may end up in a web page. */
@@ -56,6 +61,7 @@ export function buildWhy(outDir = path.join(ROOT, 'dist-why'), project = JSON.pa
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(target, { recursive: true });
 
+  mkdirSync(path.join(target, 'stats'), { recursive: true });
   for (const file of FILES) cpSync(path.join(ROOT, 'public', file), path.join(target, file));
   cpSync(path.join(ROOT, 'public', 'img'), path.join(target, 'img'), { recursive: true });
 

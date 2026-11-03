@@ -17,6 +17,7 @@ The same front end runs against three backends:
 - Answers are saved after every question, so a half-finished survey is not lost. Reloading resumes where the respondent stopped, and flaky Wi-Fi is handled by retrying in the background.
 - Anonymous: only a random submission ID is stored, no personal data.
 - Live results page and CSV export, protected by a secret token.
+- A statistics page (`/stats/`) for a quick look: how many started and finished, submissions per hour or day, where unfinished submissions stop, and every answer with age, gender and "completed only" filters. It refreshes itself and uses the same secret token.
 - Light and dark theme, following the Inbox.lv look and feel; split layout on desktop, single column on phones.
 - No runtime dependencies. The only dev dependency is [PGlite](https://pglite.dev/), an in-process Postgres used to test the SQL.
 
@@ -57,6 +58,8 @@ Validation happens inside Postgres ([`supabase/schema.sql`](supabase/schema.sql)
 
    Results are then at `https://why.inbokss.com/inbox-survey/results.html#token=<the secret>`. Keeping the secret in the `#` part of the URL means it is never sent to any server. Keep the secret somewhere safe: it cannot be read back from the database (run the two steps again to replace it).
 
+   The statistics page is at `https://why.inbokss.com/inbox-survey/stats/#token=<the secret>`. Open that link once in a browser: the secret is then remembered in that browser (and removed from the address bar), so the plain `/inbox-survey/stats/` address works there afterwards. Another device needs the full link once.
+
 ### Publishing the pages
 
 ```bash
@@ -79,6 +82,7 @@ The server prints three links:
 | --- | --- |
 | `http://localhost:3000/` | The survey. Show a QR code for this address on the big screen. |
 | `http://localhost:3000/results?token=…` | Live results, refreshed every 5 seconds. |
+| `http://localhost:3000/stats/#token=…` | Statistics: counts, timeline, drop-off, filters. Refreshes every 15 seconds. |
 | `http://localhost:3000/api/export.csv?token=…` | CSV export of all answers. |
 
 The results token is generated once and stored in the database, so the link survives restarts. To use your own, set `ADMIN_TOKEN`. Open `/?reset` to forget the saved progress in the current browser.
@@ -117,7 +121,7 @@ The suite starts real servers on random ports with in-memory or temporary databa
 
 ## GitHub Pages demo
 
-GitHub Pages can only host static files, so [the demo](https://ingmarsj.github.io/inbox-survey/) cannot store answers: they stay in the visitor's own browser (`localStorage`). A "Demo versija" badge in the header says so, and there is no results page. `npm run build:pages` builds it, and the workflow in [`.github/workflows/pages.yml`](.github/workflows/pages.yml) runs the tests and deploys it on every push to `main`.
+GitHub Pages can only host static files, so [the demo](https://ingmarsj.github.io/inbox-survey/) cannot store answers: they stay in the visitor's own browser (`localStorage`). A "Demo versija" badge in the header says so, and there are no results or statistics pages. `npm run build:pages` builds it, and the workflow in [`.github/workflows/pages.yml`](.github/workflows/pages.yml) runs the tests and deploys it on every push to `main`.
 
 ## Project layout
 
@@ -125,11 +129,14 @@ GitHub Pages can only host static files, so [the demo](https://ingmarsj.github.i
 server.js            HTTP server and API (SQLite)
 db.js                SQLite access
 questions.js         Loads and checks questions.json
-results.js           Results and CSV from SQLite
+results.js           Results and CSV from SQLite (the statistics page gets all submissions from `/api/export.json`)
 questions.json       The survey (Latvian)
 public/              Front end (plain HTML, CSS and ES modules, no build step)
   validate.js        Answer validation and path rules, shared by every backend
   aggregate.js       Results and CSV maths, shared by the server and the browser
+  stats-data.js      Numbers for the statistics page (filters, timeline, drop-off)
+  stats.js, stats/   The statistics page
+  token.js, ui.js    Remembered results token, small DOM helpers
   supabase-api.js    Browser client for the Supabase functions
   demo-api.js        In-browser fake backend for the GitHub Pages demo
   config.js          Which backend the page talks to

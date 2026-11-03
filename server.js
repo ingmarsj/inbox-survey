@@ -4,7 +4,7 @@ import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  openDb, createSubmission, getSubmission, saveAnswers, completeSubmission, getMeta, setMeta,
+  openDb, createSubmission, getSubmission, saveAnswers, completeSubmission, getMeta, setMeta, allSubmissions,
 } from './db.js';
 import { loadConfig, validateAnswer, isQuestionVisible, hiddenAnsweredIds } from './questions.js';
 import { aggregate, toCsv } from './results.js';
@@ -145,6 +145,11 @@ export function createApp({ dbPath = path.join(ROOT, 'data', 'survey.db'), quest
       return send(res, 200, aggregate(db, config));
     }
 
+    if (method === 'GET' && pathname === '/api/export.json') {
+      requireAdmin(url, req);
+      return send(res, 200, { config: { intro: config.intro, thanks: config.thanks, questions: config.questions }, subs: allSubmissions(db) });
+    }
+
     if (method === 'GET' && pathname === '/api/export.csv') {
       requireAdmin(url, req);
       return send(res, 200, toCsv(db, config), {
@@ -161,6 +166,11 @@ export function createApp({ dbPath = path.join(ROOT, 'data', 'survey.db'), quest
     let pathname = decodeURIComponent(url.pathname);
     if (pathname === '/') pathname = '/index.html';
     if (pathname === '/results') pathname = '/results.html';
+    if (pathname === '/stats') {
+      res.writeHead(302, { Location: '/stats/' });
+      return res.end();
+    }
+    if (pathname.endsWith('/')) pathname += 'index.html';
     const file = path.join(PUBLIC_DIR, pathname);
     if (!file.startsWith(PUBLIC_DIR + path.sep)) throw new HttpError(404, 'Not found');
     let data;

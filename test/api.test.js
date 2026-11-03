@@ -530,3 +530,45 @@ test('feedback channels accept several answers, and the write-in text shows up i
     await s.stop();
   }
 });
+
+/* ---------- statistics page ---------- */
+
+test('the JSON export for the statistics page needs the admin token and holds every submission', async () => {
+  const s = await startServer();
+  try {
+    assert.equal((await s.call('GET', '/api/export.json')).status, 401);
+    assert.equal((await s.call('GET', '/api/export.json?token=wrong')).status, 401);
+
+    const done = await submitAll(s);
+    const open = await s.newSubmission();
+    await s.answer(open, 'age_group', '25_34');
+
+    const res = await s.call('GET', `/api/export.json?token=${TOKEN}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.json.config.questions.length, config.questions.length);
+    assert.deepEqual(res.json.subs.map((x) => x.id), [done, open], 'oldest first');
+    assert.ok(res.json.subs[0].completedAt);
+    assert.equal(res.json.subs[1].completedAt, null);
+    assert.deepEqual(res.json.subs[1].answers, { age_group: '25_34' });
+  } finally {
+    await s.stop();
+  }
+});
+
+test('/stats redirects to /stats/ and the statistics page is served', async () => {
+  const s = await startServer();
+  try {
+    const redirect = await fetch(`${s.base}/stats`, { redirect: 'manual' });
+    assert.equal(redirect.status, 302);
+    assert.equal(redirect.headers.get('location'), '/stats/');
+
+    const page = await s.call('GET', '/stats/');
+    assert.equal(page.status, 200);
+    assert.match(page.headers.get('content-type'), /text\/html/);
+    assert.match(page.text, /Aptaujas statistika/);
+    assert.equal((await s.call('GET', '/stats.js')).status, 200);
+    assert.equal((await s.call('GET', '/stats-data.js')).status, 200);
+  } finally {
+    await s.stop();
+  }
+});

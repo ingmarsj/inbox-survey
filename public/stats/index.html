@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="lv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex">
+  <title>Inbox.lv aptauja – statistika</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="site-header wide">
+    <a class="logo-link" href="../" title="Uz aptauju">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="../img/inbox-white.png">
+        <img class="logo" src="../img/inbox.png" alt="Inbox.lv — uz aptauju" width="124" height="30">
+      </picture>
+    </a>
+  </header>
+  <main class="shell wide" id="app">
+    <p class="eyebrow">Statistika · tiešraide</p>
+    <h1>Aptaujas statistika</h1>
+    <div class="topbar">
+      <button class="btn btn-ghost" id="refresh" type="button">Atjaunot</button>
+      <a class="btn btn-ghost" id="full" href="../results.html">Visas atbildes un teksti</a>
+      <span class="hint" id="updated">Ielādē…</span>
+    </div>
+    <p class="error" id="error" hidden></p>
+
+    <div id="content" hidden>
+      <section aria-labelledby="h-overview">
+        <h2 class="section-title" id="h-overview">Iesūtījumi</h2>
+        <div class="kpis" id="kpis"></div>
+        <div class="card">
+          <h3 id="timeline-title">Iesūtījumi laikā</h3>
+          <p class="meta" id="timeline-meta"></p>
+          <div id="timeline"></div>
+        </div>
+        <div class="card">
+          <h3>Kur apstājas nepabeigtie</h3>
+          <p class="meta" id="dropoff-meta"></p>
+          <div id="dropoff"></div>
+        </div>
+      </section>
+
+      <section aria-labelledby="h-answers">
+        <h2 class="section-title" id="h-answers">Atbildes</h2>
+        <div class="card filters" id="filters">
+          <label>Skaitīšana
+            <select class="select" id="f-mode">
+              <option value="all">Visi, kas sākuši</option>
+              <option value="done">Tikai pabeigtie</option>
+            </select>
+          </label>
+          <label id="f-age-wrap">Vecums <select class="select" id="f-age"></select></label>
+          <label id="f-gender-wrap">Dzimums <select class="select" id="f-gender"></select></label>
+          <button class="btn btn-ghost" id="reset" type="button">Atiestatīt filtrus</button>
+        </div>
+        <div class="kpis" id="view-kpis"></div>
+        <div id="questions"></div>
+        <p class="note">Nepabeigtie ieraksti satur atbildes līdz brīdim, kad cilvēks aizgāja, tāpēc uz vēlākiem jautājumiem atbilžu ir mazāk. Brīvā teksta atbildes ir rezultātu lapā.</p>
+      </section>
+    </div>
+  </main>
+  <script src="../config.js"></script>
+  <script src="../stats.js" type="module"></script>
+</body>
+</html>

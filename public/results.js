@@ -1,37 +1,17 @@
 import { aggregateSubmissions, submissionsToCsv } from './aggregate.js';
+import { forgetToken, getToken, rememberToken } from './token.js';
+import { barRow, el } from './ui.js';
 
 const settings = window.SURVEY_CONFIG ?? {};
 const REFRESH_MS = 5000;
-// The token may be in the URL fragment (preferred: it is never sent to any server) or in the query string.
-const token = new URLSearchParams(location.hash.slice(1)).get('token') ?? new URLSearchParams(location.search).get('token') ?? '';
+// The token comes from the link (fragment preferred: it is never sent to any server) or from this browser's memory.
+const token = getToken();
 
 const statsEl = document.getElementById('stats');
 const questionsEl = document.getElementById('questions');
 const updatedEl = document.getElementById('updated');
 const csvLink = document.getElementById('csv');
 if (settings.backend !== 'supabase') csvLink.href = `/api/export.csv?token=${encodeURIComponent(token)}`;
-
-function el(tag, props = {}, ...children) {
-  const node = document.createElement(tag);
-  for (const [key, value] of Object.entries(props)) {
-    if (value === undefined || value === null || value === false) continue;
-    if (key === 'class') node.className = value;
-    else node.setAttribute(key, value);
-  }
-  for (const child of children.flat()) {
-    if (child === null || child === undefined) continue;
-    node.append(child.nodeType ? child : document.createTextNode(String(child)));
-  }
-  return node;
-}
-
-const pct = (count, total) => (total ? Math.round((count / total) * 100) : 0);
-
-function barRow(label, count, total) {
-  const fill = el('i');
-  fill.style.width = `${pct(count, total)}%`;
-  return el('div', { class: 'bar-row' }, el('span', {}, label), el('div', { class: 'bar' }, fill), el('span', { class: 'num' }, `${count} · ${pct(count, total)}%`));
-}
 
 function renderQuestion(q) {
   const card = el('div', { class: 'card' }, el('h3', {}, q.title), el('p', { class: 'meta' }, `${q.section ? q.section + ' · ' : ''}atbildēja ${q.answered}`));
@@ -93,10 +73,12 @@ async function load() {
     data = settings.backend === 'supabase' ? await loadFromSupabase() : await loadFromServer();
   } catch (err) {
     if (!(err instanceof Unauthorized)) throw err;
+    forgetToken();
     questionsEl.replaceChildren(el('p', { class: 'error' }, 'Nederīga piekļuves atslēga. Izmantojiet saiti, kas paredzēta rezultātu skatīšanai.'));
     return false;
   }
 
+  rememberToken(token);
   statsEl.replaceChildren(
     el('div', { class: 'stat' }, el('b', {}, data.totals.started), el('span', {}, 'sākuši')),
     el('div', { class: 'stat' }, el('b', {}, data.totals.completed), el('span', {}, 'pabeiguši')),

@@ -33,7 +33,7 @@ test('the Pages build contains the survey and switches the front end to demo mod
 test('the Pages build leaves out everything that needs the server', () => {
   withBuild((dir) => {
     const files = readdirSync(dir, { recursive: true }).map(String);
-    assert.ok(!files.some((f) => /results/.test(f)), 'no results page');
+    assert.ok(!files.some((f) => /results|stats|token.js|ui.js/.test(f)), 'no results or statistics page');
     assert.ok(!files.some((f) => /\.(db|db-wal|db-shm)$/.test(f)), 'no database files');
     assert.ok(!files.includes('server.js'));
   });

@@ -44,7 +44,7 @@ test('secret keys and strange URLs are refused', () => {
 test('the build puts everything in an inbox-survey/ folder with the Supabase backend', () => {
   withBuild((dir, root) => {
     assert.deepEqual(readdirSync(root), ['inbox-survey']);
-    for (const file of ['index.html', 'results.html', 'app.js', 'results.js', 'aggregate.js', 'validate.js', 'supabase-api.js', 'style.css', 'config.js']) {
+    for (const file of ['index.html', 'results.html', 'stats/index.html', 'app.js', 'results.js', 'stats.js', 'stats-data.js', 'token.js', 'ui.js', 'aggregate.js', 'validate.js', 'supabase-api.js', 'style.css', 'config.js']) {
       assert.ok(existsSync(path.join(dir, file)), file);
     }
     for (const logo of ['img/inbox.png', 'img/inbox-white.png']) assert.ok(existsSync(path.join(dir, logo)), logo);
@@ -72,14 +72,14 @@ test('nothing that needs the Node server, SQLite or a secret is published', () =
 
 test('every asset is referenced relatively and exists, so the folder works under /inbox-survey/', () => {
   withBuild((dir) => {
-    for (const page of ['index.html', 'results.html']) {
+    for (const page of ['index.html', 'results.html', 'stats/index.html']) {
       const html = read(dir, page);
       const refs = [...html.matchAll(/(?:src|href|srcset)="([^"#]+)"/g)].map((m) => m[1]);
       assert.ok(refs.length >= 4, page);
       for (const ref of refs) {
         assert.ok(!ref.startsWith('/'), `${page}: ${ref} must not be root-absolute`);
         if (ref === './') continue;
-        assert.ok(existsSync(path.join(dir, ref)), `${page}: ${ref} exists`);
+        assert.ok(existsSync(path.join(dir, path.dirname(page), ref)), `${page}: ${ref} exists`);
       }
     }
     assert.doesNotMatch(read(dir, 'app.js'), /['"`]\/api\//);
@@ -88,13 +88,15 @@ test('every asset is referenced relatively and exists, so the folder works under
 
 test('both pages are kept out of search engines and load the config before the app', () => {
   withBuild((dir) => {
-    for (const page of ['index.html', 'results.html']) {
+    for (const page of ['index.html', 'results.html', 'stats/index.html']) {
       const html = read(dir, page);
       assert.match(html, /<meta name="robots" content="noindex">/, page);
-      assert.ok(html.indexOf('config.js') < html.indexOf('app.js') || page === 'results.html', page);
+      assert.ok(html.indexOf('config.js') < html.indexOf('app.js') || page !== 'index.html', page);
     }
     const results = read(dir, 'results.html');
     assert.ok(results.indexOf('config.js') < results.indexOf('results.js'));
+    const stats = read(dir, 'stats/index.html');
+    assert.ok(stats.indexOf('config.js') < stats.indexOf('stats.js'));
   });
 });
 

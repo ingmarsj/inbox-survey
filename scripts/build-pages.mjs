@@ -13,7 +13,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Front-end files that must not be published: they need the real server. */
-const SERVER_ONLY = new Set(['results.html', 'results.js']);
+const SERVER_ONLY = new Set(['results.html', 'results.js', 'stats', 'stats.js', 'stats-data.js', 'token.js', 'ui.js']);
 
 export function buildPages(outDir = path.join(ROOT, 'dist')) {
   rmSync(outDir, { recursive: true, force: true });
