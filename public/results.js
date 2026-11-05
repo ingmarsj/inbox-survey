@@ -14,7 +14,7 @@ const csvLink = document.getElementById('csv');
 if (settings.backend !== 'supabase') csvLink.href = `/api/export.csv?token=${encodeURIComponent(token)}`;
 
 function renderQuestion(q) {
-  const card = el('div', { class: 'card' }, el('h3', {}, q.title), el('p', { class: 'meta' }, `${q.section ? q.section + ' · ' : ''}atbildēja ${q.answered}`));
+  const card = el('div', { class: 'card', 'data-q': q.id }, el('h3', {}, q.title), el('p', { class: 'meta' }, `${q.section ? q.section + ' · ' : ''}atbildēja ${q.answered}`));
 
   if (q.options) {
     for (const o of q.options) card.append(barRow(`${o.icon ? o.icon + ' ' : ''}${o.label}`, o.count, q.answered));
@@ -36,6 +36,7 @@ class Unauthorized extends Error {}
 
 let supabaseApi = null;
 let csvUrl = null;
+let lastShown = ''; // the data behind what is on screen: an unchanged refresh leaves the cards alone
 
 /** Results from Supabase: download the export and aggregate it here, with the same code the Node server uses. */
 async function loadFromSupabase() {
@@ -83,7 +84,17 @@ async function load() {
     el('div', { class: 'stat' }, el('b', {}, data.totals.started), el('span', {}, 'sākuši')),
     el('div', { class: 'stat' }, el('b', {}, data.totals.completed), el('span', {}, 'pabeiguši')),
   );
-  questionsEl.replaceChildren(...data.questions.map(renderQuestion));
+  const shown = JSON.stringify(data);
+  if (shown !== lastShown) {
+    // Rebuilding the cards would throw away how far each list of texts was scrolled, so put it back.
+    const scrolled = new Map([...questionsEl.querySelectorAll('.card[data-q] .texts')].map((list) => [list.closest('.card').dataset.q, list.scrollTop]));
+    questionsEl.replaceChildren(...data.questions.map(renderQuestion));
+    for (const [id, top] of scrolled) {
+      const list = questionsEl.querySelector(`.card[data-q="${id}"] .texts`);
+      if (list) list.scrollTop = top;
+    }
+    lastShown = shown;
+  }
   updatedEl.textContent = `Atjaunots ${new Date().toLocaleTimeString('lv-LV')}`;
   return true;
 }
