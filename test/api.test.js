@@ -50,7 +50,7 @@ test('a respondent can go through the whole survey and everything lands in SQLit
     const rows = s.db.prepare('SELECT COUNT(*) AS n FROM answers WHERE submission_id = ?').get(id);
     assert.equal(rows.n, Object.keys(validAnswers()).length);
     const years = s.db.prepare("SELECT value FROM answers WHERE submission_id = ? AND question_id = 'years_using'").get(id);
-    assert.equal(JSON.parse(years.value), 'under_1');
+    assert.equal(JSON.parse(years.value), '0_1');
   } finally {
     await s.stop();
   }
@@ -60,11 +60,11 @@ test('progress is saved as the respondent goes, so reloading resumes', async () 
   const s = await startServer();
   try {
     const id = await s.newSubmission();
-    await s.answer(id, 'years_using', '2');
+    await s.answer(id, 'years_using', '2_4');
     await s.answer(id, 'recommend', 4);
     const got = await s.call('GET', `/api/submissions/${id}`);
     assert.equal(got.json.completed, false);
-    assert.deepEqual(got.json.answers, { years_using: '2', recommend: 4 });
+    assert.deepEqual(got.json.answers, { years_using: '2_4', recommend: 4 });
   } finally {
     await s.stop();
   }
@@ -74,11 +74,11 @@ test('changing an answer overwrites it instead of adding a row', async () => {
   const s = await startServer();
   try {
     const id = await s.newSubmission();
-    await s.answer(id, 'years_using', '1');
-    await s.answer(id, 'years_using', '2');
+    await s.answer(id, 'years_using', '0_1');
+    await s.answer(id, 'years_using', '2_4');
     const rows = s.db.prepare("SELECT value FROM answers WHERE submission_id = ? AND question_id = 'years_using'").all(id);
     assert.equal(rows.length, 1);
-    assert.equal(JSON.parse(rows[0].value), '2');
+    assert.equal(JSON.parse(rows[0].value), '2_4');
   } finally {
     await s.stop();
   }
@@ -92,10 +92,10 @@ test('an optional text answer can be cleared, a required one cannot', async () =
     assert.equal((await s.answer(id, 'pain_point', '')).status, 200);
     assert.equal((await s.call('GET', `/api/submissions/${id}`)).json.answers.pain_point, undefined);
 
-    await s.answer(id, 'years_using', '3');
+    await s.answer(id, 'years_using', '2_4');
     const res = await s.answer(id, 'years_using', null);
     assert.equal(res.status, 400);
-    assert.equal((await s.call('GET', `/api/submissions/${id}`)).json.answers.years_using, '3');
+    assert.equal((await s.call('GET', `/api/submissions/${id}`)).json.answers.years_using, '2_4');
   } finally {
     await s.stop();
   }
@@ -120,7 +120,7 @@ test('rejects invalid answers with 400 and stores nothing', async () => {
       ['feedback_ease', 3],
       ['feedback_ease', 'martian'],
       ['age_group', 'ancient'],
-      ['region', 'mars'],
+      ['city', 'mars'],
       ['email_frequency', 'hourly'],
       ['inbox_products', 'mobile_app'],
       ['inbox_products', ['mobile_app', 'nope']],
@@ -147,7 +147,7 @@ test('unknown ids, bad JSON and oversized bodies are handled', async () => {
     assert.equal((await s.answer(id, 'no_such_question', 'x')).status, 404);
     assert.equal((await s.call('GET', '/api/submissions/not-a-uuid')).status, 404);
     assert.equal((await s.call('GET', '/api/submissions/00000000-0000-4000-8000-000000000000')).status, 404);
-    assert.equal((await s.answer('00000000-0000-4000-8000-000000000000', 'years_using', '3')).status, 404);
+    assert.equal((await s.answer('00000000-0000-4000-8000-000000000000', 'years_using', '2_4')).status, 404);
     assert.equal((await s.call('PUT', `/api/submissions/${id}/answers/years_using`, '{not json')).status, 400);
     assert.equal((await s.call('PUT', `/api/submissions/${id}/answers/pain_point`, { value: 'x'.repeat(40_000) })).status, 413);
     assert.equal((await s.call('GET', '/api/nope')).status, 404);
@@ -160,11 +160,11 @@ test('cannot complete until every required question is answered', async () => {
   const s = await startServer();
   try {
     const id = await s.newSubmission();
-    await s.answer(id, 'years_using', '3');
+    await s.answer(id, 'years_using', '2_4');
     const res = await s.call('POST', `/api/submissions/${id}/complete`);
     assert.equal(res.status, 422);
     // required questions that are on the respondent's path (the support rating only exists for people who contacted support)
-    const required = config.questions.filter((q) => q.required && isQuestionVisible(q, { years_using: '3' })).map((q) => q.id);
+    const required = config.questions.filter((q) => q.required && isQuestionVisible(q, { years_using: '2_4' })).map((q) => q.id);
     assert.deepEqual(res.json.missing, required.filter((qid) => qid !== 'years_using'));
     assert.equal(s.db.prepare('SELECT completed_at FROM submissions WHERE id = ?').get(id).completed_at, null);
   } finally {
@@ -188,10 +188,10 @@ test('a completed submission is locked and completing twice is harmless', async 
   try {
     const id = await submitAll(s);
     const first = s.db.prepare('SELECT completed_at FROM submissions WHERE id = ?').get(id).completed_at;
-    assert.equal((await s.answer(id, 'years_using', '2')).status, 409);
+    assert.equal((await s.answer(id, 'years_using', '2_4')).status, 409);
     assert.equal((await s.call('POST', `/api/submissions/${id}/complete`)).status, 200);
     assert.equal(s.db.prepare('SELECT completed_at FROM submissions WHERE id = ?').get(id).completed_at, first);
-    assert.equal((await s.call('GET', `/api/submissions/${id}`)).json.answers.years_using, 'under_1');
+    assert.equal((await s.call('GET', `/api/submissions/${id}`)).json.answers.years_using, '0_1');
   } finally {
     await s.stop();
   }
@@ -229,11 +229,11 @@ test('results aggregate counts, averages and texts', async () => {
   const s = await startServer();
   try {
     // three finished respondents and one who stopped halfway
-    await submitAll(s, { years_using: '1', recommend: 5, feedback_channel: ['email_survey'], news_channel: ['email'], satisfaction: 5, pain_point: 'ātrs' });
-    await submitAll(s, { years_using: '2', recommend: 4, feedback_channel: ['support_team'], news_channel: ['email', 'in_app'], satisfaction: 4, pain_point: 'ērts' });
+    await submitAll(s, { years_using: '0_1', recommend: 5, feedback_channel: ['email_survey'], news_channel: ['email'], satisfaction: 5, pain_point: 'ātrs' });
+    await submitAll(s, { years_using: '2_4', recommend: 4, feedback_channel: ['support_team'], news_channel: ['email', 'in_app'], satisfaction: 4, pain_point: 'ērts' });
     await submitAll(s, { years_using: '10_plus', recommend: 1, feedback_channel: ['mobile_app_form'], news_channel: ['social'], satisfaction: 2, pain_point: 'lēns' });
     const partial = await s.newSubmission();
-    await s.answer(partial, 'years_using', '2');
+    await s.answer(partial, 'years_using', '2_4');
     await s.answer(partial, 'recommend', 3);
 
     const all = (await s.call('GET', `/api/results?token=${TOKEN}`)).json;
@@ -266,7 +266,7 @@ test('results aggregate counts, averages and texts', async () => {
     assert.equal(years.answered, 4);
     assert.deepEqual(
       Object.fromEntries(years.options.filter((o) => o.count).map((o) => [o.value, o.count])),
-      { 1: 1, 2: 2, '10_plus': 1 },
+      { '0_1': 1, '2_4': 2, '10_plus': 1 },
     );
 
     assert.equal(q('satisfaction').average, (5 + 4 + 2) / 3);
@@ -292,7 +292,7 @@ test('results for an empty database do not crash', async () => {
 test('CSV export has a header, UTF-8 BOM, proper quoting and blocks formula injection', async () => {
   const s = await startServer();
   try {
-    await submitAll(s, { years_using: '3', pain_point: '=HYPERLINK("http://x")', anything_else: 'rinda 1\nrinda 2, ar komatu' });
+    await submitAll(s, { years_using: '2_4', pain_point: '=HYPERLINK("http://x")', anything_else: 'rinda 1\nrinda 2, ar komatu' });
     const res = await s.call('GET', `/api/export.csv?token=${TOKEN}`);
     assert.equal(res.status, 200);
     assert.match(res.headers.get('content-type'), /text\/csv/);
@@ -391,13 +391,11 @@ test('only people who contacted support are asked to rate it', async () => {
     assert.equal((await s.answer(id, 'support_rating', 4)).status, 400);
     await s.answer(id, 'support_tried', 'knew');
     assert.equal((await s.answer(id, 'support_rating', 4)).status, 400);
-    assert.equal((await s.answer(id, 'support_comment', 'Labi')).status, 400);
 
     await s.answer(id, 'support_tried', 'tried');
     assert.equal((await s.answer(id, 'support_rating', 4)).status, 200);
     assert.equal((await s.answer(id, 'support_rating', 6)).status, 400, 'still a 1-5 scale');
-    assert.equal((await s.answer(id, 'support_comment', '  Ātri palīdzēja  ')).status, 200);
-    assert.deepEqual(await answers(), { support_tried: 'tried', support_rating: 4, support_comment: 'Ātri palīdzēja' });
+    assert.deepEqual(await answers(), { support_tried: 'tried', support_rating: 4 });
   } finally {
     await s.stop();
   }
@@ -408,16 +406,15 @@ test('changing the support answer drops the follow-up answers that no longer bel
   try {
     const id = await s.newSubmission();
     const answers = async () => (await s.call('GET', `/api/submissions/${id}`)).json.answers;
-    await s.answer(id, 'years_using', '2');
+    await s.answer(id, 'years_using', '2_4');
     await s.answer(id, 'support_tried', 'tried');
     await s.answer(id, 'support_rating', 5);
-    await s.answer(id, 'support_comment', 'Super');
 
     await s.answer(id, 'support_tried', 'unknown');
-    assert.deepEqual(await answers(), { years_using: '2', support_tried: 'unknown' });
+    assert.deepEqual(await answers(), { years_using: '2_4', support_tried: 'unknown' });
 
     await s.answer(id, 'support_tried', 'tried');
-    assert.deepEqual(await answers(), { years_using: '2', support_tried: 'tried' }, 'they are not brought back');
+    assert.deepEqual(await answers(), { years_using: '2_4', support_tried: 'tried' }, 'they are not brought back');
     assert.equal((await s.answer(id, 'support_rating', 3)).status, 200);
 
     // the database agrees with the API
@@ -476,11 +473,11 @@ test('a respondent has to answer every required question on their path', async (
   const s = await startServer();
   try {
     const id = await s.newSubmission();
-    await s.answer(id, 'years_using', '4');
+    await s.answer(id, 'years_using', '2_4');
     const res = await s.call('POST', `/api/submissions/${id}/complete`);
     assert.equal(res.status, 422);
     assert.deepEqual(res.json.missing, [
-      'age_group', 'gender', 'region', 'email_frequency', 'email_purpose', 'inbox_products', 'news_channel', 'news_frequency',
+      'age_group', 'gender', 'city', 'email_frequency', 'email_purpose', 'inbox_products', 'news_channel',
       'feedback_channel', 'feedback_ease', 'satisfaction', 'recommend', 'improvements_noticed', 'premium_used', 'support_tried', 'considered_leaving',
     ]);
   } finally {
@@ -491,7 +488,7 @@ test('a respondent has to answer every required question on their path', async (
 test('results count the support rating only among the people who were asked', async () => {
   const s = await startServer();
   try {
-    await submitAll(s, { support_tried: 'tried', support_rating: 5, support_comment: 'Teicami', considered_leaving: 'yes', leaving_reason: 'Dārgi' });
+    await submitAll(s, { support_tried: 'tried', support_rating: 5, considered_leaving: 'yes', leaving_reason: 'Dārgi' });
     await submitAll(s, { support_tried: 'knew', considered_leaving: 'no' });
     await submitAll(s, { support_tried: 'unknown', considered_leaving: 'no' });
     const results = (await s.call('GET', `/api/results?token=${TOKEN}`)).json;
@@ -500,7 +497,6 @@ test('results count the support rating only among the people who were asked', as
     assert.deepEqual(Object.fromEntries(q('support_tried').options.map((o) => [o.value, o.count])), { tried: 1, knew: 1, unknown: 1 });
     assert.equal(q('support_rating').answered, 1);
     assert.equal(q('support_rating').average, 5);
-    assert.deepEqual(q('support_comment').texts, [{ text: 'Teicami' }]);
     assert.deepEqual(Object.fromEntries(q('considered_leaving').options.map((o) => [o.value, o.count])), { yes: 1, no: 2 });
     assert.deepEqual(q('leaving_reason').texts, [{ text: 'Dārgi' }]);
     assert.deepEqual(results.totals, { started: 3, completed: 3 });
@@ -515,10 +511,18 @@ test('the removed questions are not in the results or the export', async () => {
     await submitAll(s);
     const results = (await s.call('GET', `/api/results?token=${TOKEN}`)).json;
     const ids = results.questions.map((q) => q.id);
-    assert.equal(ids.includes('one_word'), false);
-    assert.equal(ids.includes('not_using_reason'), false);
-    assert.equal((await s.call('GET', `/api/export.csv?token=${TOKEN}`)).text.includes('one_word'), false);
-    assert.equal((await s.answer(await s.newSubmission(), 'one_word', 'ātrs')).status, 404, 'cannot be answered any more');
+    const removed = ['one_word', 'not_using_reason', 'news_frequency', 'support_comment', 'region'];
+    const csv = (await s.call('GET', `/api/export.csv?token=${TOKEN}`)).text;
+    for (const id of removed) {
+      assert.equal(ids.includes(id), false, id);
+      assert.equal(csv.includes(id), false, `${id} in the CSV`);
+      assert.equal((await s.answer(await s.newSubmission(), id, 'x')).status, 404, `${id} cannot be answered any more`);
+    }
+    // answers that no longer exist are refused too
+    const id = await s.newSubmission();
+    for (const [qid, value] of [['years_using', 'not_using'], ['years_using', 'under_1'], ['years_using', '2'], ['email_purpose', ['bills']], ['inbox_products', ['dating']], ['inbox_products', ['xtv']], ['premium_used', 'never_known_old']]) {
+      assert.equal((await s.answer(id, qid, value)).status, 400, `${qid}=${JSON.stringify(value)}`);
+    }
   } finally {
     await s.stop();
   }
@@ -532,7 +536,7 @@ test('"Cits" in the news question takes a write-in text, which only exists while
     const id = await s.newSubmission();
     const answers = async () => (await s.call('GET', `/api/submissions/${id}`)).json.answers;
 
-    await s.answer(id, 'years_using', '2');
+    await s.answer(id, 'years_using', '2_4');
     // the text box is not part of the path until "Cits" is chosen
     assert.equal((await s.answer(id, 'news_channel_other', 'My blog')).status, 400);
     await s.answer(id, 'news_channel', ['email']);
@@ -572,8 +576,8 @@ test('"Cits" in the e-mail purpose question works the same way', async () => {
 test('feedback channels accept several answers, and the write-in text shows up in the results', async () => {
   const s = await startServer();
   try {
-    await submitAll(s, { years_using: '2', feedback_channel: ['email_survey', 'social'], news_channel: ['other'], news_channel_other: 'Telegram' });
-    await submitAll(s, { years_using: '2', feedback_channel: ['social'] });
+    await submitAll(s, { years_using: '2_4', feedback_channel: ['email_survey', 'social'], news_channel: ['other'], news_channel_other: 'Telegram' });
+    await submitAll(s, { years_using: '2_4', feedback_channel: ['social'] });
     const results = (await s.call('GET', `/api/results?token=${TOKEN}`)).json;
     const q = (id) => results.questions.find((x) => x.id === id);
     const counts = Object.fromEntries(q('feedback_channel').options.map((o) => [o.value, o.count]));

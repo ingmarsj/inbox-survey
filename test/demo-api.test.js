@@ -56,16 +56,16 @@ test('demo API applies the same validation as the server', async () => {
 test('demo API refuses to complete with required answers missing and then locks the submission', async () => {
   const api = newDemo();
   const { id } = await api('POST', 'api/submissions');
-  await api('PUT', `api/submissions/${id}/answers/years_using`, { value: '1' });
+  await api('PUT', `api/submissions/${id}/answers/years_using`, { value: '0_1' });
 
   const err = await failure(api('POST', `api/submissions/${id}/complete`));
   assert.equal(err.status, 422);
-  const required = config.questions.filter((q) => q.required && isQuestionVisible(q, { years_using: '1' })).map((q) => q.id);
+  const required = config.questions.filter((q) => q.required && isQuestionVisible(q, { years_using: '0_1' })).map((q) => q.id);
   assert.deepEqual(err.data.missing, required.filter((qid) => qid !== 'years_using'));
 
   for (const [qid, value] of Object.entries(validAnswers())) await api('PUT', `api/submissions/${id}/answers/${qid}`, { value });
   await api('POST', `api/submissions/${id}/complete`);
-  assert.equal((await failure(api('PUT', `api/submissions/${id}/answers/years_using`, { value: '2' }))).status, 409);
+  assert.equal((await failure(api('PUT', `api/submissions/${id}/answers/years_using`, { value: '2_4' }))).status, 409);
 });
 
 test('optional answers can be cleared', async () => {
@@ -80,10 +80,10 @@ test('progress survives a page reload (same storage) but not a different browser
   const storage = fakeStorage();
   const first = newDemo(storage);
   const { id } = await first('POST', 'api/submissions');
-  await first('PUT', `api/submissions/${id}/answers/years_using`, { value: '3' });
+  await first('PUT', `api/submissions/${id}/answers/years_using`, { value: '2_4' });
 
   const afterReload = newDemo(storage);
-  assert.deepEqual((await afterReload('GET', `api/submissions/${id}`)).answers, { years_using: '3' });
+  assert.deepEqual((await afterReload('GET', `api/submissions/${id}`)).answers, { years_using: '2_4' });
 
   const otherBrowser = newDemo(fakeStorage());
   assert.equal((await failure(otherBrowser('GET', `api/submissions/${id}`))).status, 404);
@@ -99,8 +99,8 @@ test('unknown routes and submissions are 404, and a leading slash is tolerated',
 test('demo API works without usable localStorage (falls back to memory)', async () => {
   const api = createDemoApi({ loadQuestions: async () => config });
   const { id } = await api('POST', 'api/submissions');
-  await api('PUT', `api/submissions/${id}/answers/years_using`, { value: '4' });
-  assert.equal((await api('GET', `api/submissions/${id}`)).answers.years_using, '4');
+  await api('PUT', `api/submissions/${id}/answers/years_using`, { value: '2_4' });
+  assert.equal((await api('GET', `api/submissions/${id}`)).answers.years_using, '2_4');
 });
 
 test('demo API asks about the support experience only after "Jā, vērsos atbalstā"', async () => {
@@ -113,8 +113,7 @@ test('demo API asks about the support experience only after "Jā, vērsos atbals
   assert.equal((await failure(put('support_rating', 4))).status, 400);
   await put('support_tried', 'tried');
   await put('support_rating', 4);
-  await put('support_comment', 'Ātri palīdzēja');
-  assert.deepEqual((await api('GET', `api/submissions/${id}`)).answers, { support_tried: 'tried', support_rating: 4, support_comment: 'Ātri palīdzēja' });
+  assert.deepEqual((await api('GET', `api/submissions/${id}`)).answers, { support_tried: 'tried', support_rating: 4 });
 });
 
 test('demo API requires the support rating once support was contacted', async () => {

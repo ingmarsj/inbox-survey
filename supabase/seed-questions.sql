@@ -73,12 +73,12 @@ values (true, $survey_json$
       ]
     },
     {
-      "id": "region",
+      "id": "city",
       "section": "Par Jums",
       "type": "single",
       "display": "dropdown",
       "required": true,
-      "title": "No kuras Latvijas daļas Jūs esat?",
+      "title": "No kuras Latvijas pilsētas Jūs esat?",
       "placeholder": "Izvēlieties",
       "options": [
         {
@@ -86,24 +86,332 @@ values (true, $survey_json$
           "label": "Rīga"
         },
         {
-          "value": "pieriga",
-          "label": "Pierīga (Rīgas apkārtne)"
+          "value": "ainazi",
+          "label": "Ainaži"
         },
         {
-          "value": "vidzeme",
-          "label": "Vidzeme"
+          "value": "aizkraukle",
+          "label": "Aizkraukle"
         },
         {
-          "value": "kurzeme",
-          "label": "Kurzeme"
+          "value": "aizpute",
+          "label": "Aizpute"
         },
         {
-          "value": "zemgale",
-          "label": "Zemgale"
+          "value": "akniste",
+          "label": "Aknīste"
         },
         {
-          "value": "latgale",
-          "label": "Latgale"
+          "value": "aloja",
+          "label": "Aloja"
+        },
+        {
+          "value": "aluksne",
+          "label": "Alūksne"
+        },
+        {
+          "value": "ape",
+          "label": "Ape"
+        },
+        {
+          "value": "auce",
+          "label": "Auce"
+        },
+        {
+          "value": "adazi",
+          "label": "Ādaži"
+        },
+        {
+          "value": "baldone",
+          "label": "Baldone"
+        },
+        {
+          "value": "balozi",
+          "label": "Baloži"
+        },
+        {
+          "value": "balvi",
+          "label": "Balvi"
+        },
+        {
+          "value": "bauska",
+          "label": "Bauska"
+        },
+        {
+          "value": "broceni",
+          "label": "Brocēni"
+        },
+        {
+          "value": "carnikava",
+          "label": "Carnikava"
+        },
+        {
+          "value": "cesvaine",
+          "label": "Cesvaine"
+        },
+        {
+          "value": "cesis",
+          "label": "Cēsis"
+        },
+        {
+          "value": "dagda",
+          "label": "Dagda"
+        },
+        {
+          "value": "daugavpils",
+          "label": "Daugavpils"
+        },
+        {
+          "value": "dobele",
+          "label": "Dobele"
+        },
+        {
+          "value": "durbe",
+          "label": "Durbe"
+        },
+        {
+          "value": "grobina",
+          "label": "Grobiņa"
+        },
+        {
+          "value": "gulbene",
+          "label": "Gulbene"
+        },
+        {
+          "value": "iecava",
+          "label": "Iecava"
+        },
+        {
+          "value": "ikskile",
+          "label": "Ikšķile"
+        },
+        {
+          "value": "ilukste",
+          "label": "Ilūkste"
+        },
+        {
+          "value": "jaunjelgava",
+          "label": "Jaunjelgava"
+        },
+        {
+          "value": "jelgava",
+          "label": "Jelgava"
+        },
+        {
+          "value": "jekabpils",
+          "label": "Jēkabpils"
+        },
+        {
+          "value": "jurmala",
+          "label": "Jūrmala"
+        },
+        {
+          "value": "kandava",
+          "label": "Kandava"
+        },
+        {
+          "value": "karsava",
+          "label": "Kārsava"
+        },
+        {
+          "value": "koknese",
+          "label": "Koknese"
+        },
+        {
+          "value": "kraslava",
+          "label": "Krāslava"
+        },
+        {
+          "value": "kuldiga",
+          "label": "Kuldīga"
+        },
+        {
+          "value": "kegums",
+          "label": "Ķegums"
+        },
+        {
+          "value": "kekava",
+          "label": "Ķekava"
+        },
+        {
+          "value": "lielvarde",
+          "label": "Lielvārde"
+        },
+        {
+          "value": "liepaja",
+          "label": "Liepāja"
+        },
+        {
+          "value": "limbazi",
+          "label": "Limbaži"
+        },
+        {
+          "value": "ligatne",
+          "label": "Līgatne"
+        },
+        {
+          "value": "livani",
+          "label": "Līvāni"
+        },
+        {
+          "value": "lubana",
+          "label": "Lubāna"
+        },
+        {
+          "value": "ludza",
+          "label": "Ludza"
+        },
+        {
+          "value": "madona",
+          "label": "Madona"
+        },
+        {
+          "value": "mazsalaca",
+          "label": "Mazsalaca"
+        },
+        {
+          "value": "marupe",
+          "label": "Mārupe"
+        },
+        {
+          "value": "ogre",
+          "label": "Ogre"
+        },
+        {
+          "value": "olaine",
+          "label": "Olaine"
+        },
+        {
+          "value": "pavilosta",
+          "label": "Pāvilosta"
+        },
+        {
+          "value": "piltene",
+          "label": "Piltene"
+        },
+        {
+          "value": "plavinas",
+          "label": "Pļaviņas"
+        },
+        {
+          "value": "preili",
+          "label": "Preiļi"
+        },
+        {
+          "value": "priekule",
+          "label": "Priekule"
+        },
+        {
+          "value": "rezekne",
+          "label": "Rēzekne"
+        },
+        {
+          "value": "rujiena",
+          "label": "Rūjiena"
+        },
+        {
+          "value": "sabile",
+          "label": "Sabile"
+        },
+        {
+          "value": "salacgriva",
+          "label": "Salacgrīva"
+        },
+        {
+          "value": "salaspils",
+          "label": "Salaspils"
+        },
+        {
+          "value": "saldus",
+          "label": "Saldus"
+        },
+        {
+          "value": "saulkrasti",
+          "label": "Saulkrasti"
+        },
+        {
+          "value": "seda",
+          "label": "Seda"
+        },
+        {
+          "value": "sigulda",
+          "label": "Sigulda"
+        },
+        {
+          "value": "skrunda",
+          "label": "Skrunda"
+        },
+        {
+          "value": "smiltene",
+          "label": "Smiltene"
+        },
+        {
+          "value": "staicele",
+          "label": "Staicele"
+        },
+        {
+          "value": "stende",
+          "label": "Stende"
+        },
+        {
+          "value": "strenci",
+          "label": "Strenči"
+        },
+        {
+          "value": "subate",
+          "label": "Subate"
+        },
+        {
+          "value": "talsi",
+          "label": "Talsi"
+        },
+        {
+          "value": "tukums",
+          "label": "Tukums"
+        },
+        {
+          "value": "valdemarpils",
+          "label": "Valdemārpils"
+        },
+        {
+          "value": "valka",
+          "label": "Valka"
+        },
+        {
+          "value": "valmiera",
+          "label": "Valmiera"
+        },
+        {
+          "value": "vangazi",
+          "label": "Vangaži"
+        },
+        {
+          "value": "varaklani",
+          "label": "Varakļāni"
+        },
+        {
+          "value": "ventspils",
+          "label": "Ventspils"
+        },
+        {
+          "value": "viesite",
+          "label": "Viesīte"
+        },
+        {
+          "value": "vilaka",
+          "label": "Viļaka"
+        },
+        {
+          "value": "vilani",
+          "label": "Viļāni"
+        },
+        {
+          "value": "zilupe",
+          "label": "Zilupe"
+        },
+        {
+          "value": "other_latvia",
+          "label": "Cita vieta Latvijā (ciems vai lauku teritorija)"
         },
         {
           "value": "abroad",
@@ -121,24 +429,12 @@ values (true, $survey_json$
       "placeholder": "Izvēlieties",
       "options": [
         {
-          "value": "under_1",
-          "label": "Mazāk par gadu"
+          "value": "0_1",
+          "label": "0–1 gads"
         },
         {
-          "value": "1",
-          "label": "1 gads"
-        },
-        {
-          "value": "2",
-          "label": "2 gadi"
-        },
-        {
-          "value": "3",
-          "label": "3 gadi"
-        },
-        {
-          "value": "4",
-          "label": "4 gadi"
+          "value": "2_4",
+          "label": "2–4 gadi"
         },
         {
           "value": "5_9",
@@ -186,8 +482,8 @@ values (true, $survey_json$
       "section": "Par Jums",
       "type": "multi",
       "required": true,
-      "maxSelect": 6,
-      "title": "Kam Jūs izmantojat Inbox.lv e-pastu?",
+      "maxSelect": 5,
+      "title": "Kādam nolūkam Jūs izmantojat Inbox.lv e-pastu?",
       "hint": "Var izvēlēties vairākus.",
       "options": [
         {
@@ -196,15 +492,11 @@ values (true, $survey_json$
         },
         {
           "value": "personal",
-          "label": "Privātai sarakstei"
+          "label": "Privātām vajadzībām"
         },
         {
           "value": "signups",
           "label": "Reģistrācijai interneta veikalos un pakalpojumos"
-        },
-        {
-          "value": "bills",
-          "label": "Rēķiniem un oficiāliem paziņojumiem"
         },
         {
           "value": "spam",
@@ -237,7 +529,7 @@ values (true, $survey_json$
       "section": "Par Jums",
       "type": "multi",
       "required": true,
-      "maxSelect": 13,
+      "maxSelect": 10,
       "title": "Kurus Inbox.lv produktus Jūs izmantojat?",
       "hint": "E-pastu neminam. Var izvēlēties vairākus.",
       "options": [
@@ -270,24 +562,12 @@ values (true, $survey_json$
           "label": "Spēles"
         },
         {
-          "value": "dating",
-          "label": "Dating"
-        },
-        {
           "value": "business",
-          "label": "Business"
+          "label": "Business (inbox.eu)"
         },
         {
           "value": "inx",
-          "label": "Īsās saites (INX)"
-        },
-        {
-          "value": "pp",
-          "label": "PP.lv"
-        },
-        {
-          "value": "xtv",
-          "label": "XTV"
+          "label": "Saišu saīsinātājs"
         },
         {
           "value": "none",
@@ -341,31 +621,6 @@ values (true, $survey_json$
         "question": "news_channel",
         "includes": "other"
       }
-    },
-    {
-      "id": "news_frequency",
-      "section": "Jaunumi",
-      "type": "single",
-      "required": true,
-      "title": "Cik bieži vēlaties saņemt jaunumus par Inbox.lv?",
-      "options": [
-        {
-          "value": "monthly",
-          "label": "Reizi mēnesī"
-        },
-        {
-          "value": "quarterly",
-          "label": "Reizi ceturksnī"
-        },
-        {
-          "value": "important_only",
-          "label": "Tikai par svarīgām izmaiņām"
-        },
-        {
-          "value": "not_interested",
-          "label": "Neinteresē Inbox.lv jaunumi"
-        }
-      ]
     },
     {
       "id": "feedback_channel",
@@ -434,10 +689,9 @@ values (true, $survey_json$
       "required": true,
       "min": 1,
       "max": 5,
-      "title": "Cik Jūs kopumā esat apmierināti ar Inbox.lv?",
+      "title": "Cik Jūs kopumā esat apmierināts/a ar Inbox.lv?",
       "minLabel": "Neapmierināts",
-      "maxLabel": "Ļoti apmierināts",
-      "keyHint": false
+      "maxLabel": "Ļoti apmierināts"
     },
     {
       "id": "recommend",
@@ -448,8 +702,7 @@ values (true, $survey_json$
       "max": 5,
       "title": "Cik ticams, ka Jūs ieteiktu Inbox.lv draugam vai kolēģim?",
       "minLabel": "Noteikti ne",
-      "maxLabel": "Noteikti jā",
-      "keyHint": false
+      "maxLabel": "Noteikti jā"
     },
     {
       "id": "improvements_noticed",
@@ -495,7 +748,7 @@ values (true, $survey_json$
         },
         {
           "value": "never_known",
-          "label": "Nē, zinu par Premium, bet nelietoju"
+          "label": "Zinu par Premium, bet nelietoju"
         },
         {
           "value": "unknown",
@@ -508,21 +761,22 @@ values (true, $survey_json$
       "section": "Atbalsts",
       "type": "single",
       "required": true,
-      "title": "Vai Jūs esat vērsušies Inbox.lv atbalsta dienestā? Tajā strādā īsti cilvēki, kas Jums palīdzēs un runā 5 dažādās valodās.",
+      "title": "Vai Jūs esat vērsušies pēc palīdzības Inbox.lv tehniskajā atbalsta dienestā?*",
       "options": [
         {
           "value": "tried",
-          "label": "Jā, vērsos atbalstā"
+          "label": "Jā, esmu vērsies"
         },
         {
           "value": "knew",
-          "label": "Nē, bet zināju, ka tāds ir"
+          "label": "Nē, bet zināju, ka ir tāda iespēja"
         },
         {
           "value": "unknown",
-          "label": "Nē, nezināju, ka tāds ir"
+          "label": "Nē, nezināju, ka ir tāda iespēja"
         }
-      ]
+      ],
+      "hint": "* Mūsu atbalsta dienestā strādā īsti cilvēki un runā 5 dažādās valodās"
     },
     {
       "id": "support_rating",
@@ -534,22 +788,6 @@ values (true, $survey_json$
       "title": "Kāda bija Jūsu pieredze ar atbalsta dienestu?",
       "minLabel": "Slikta",
       "maxLabel": "Teicama",
-      "keyHint": false,
-      "visibleIf": {
-        "question": "support_tried",
-        "equals": "tried"
-      }
-    },
-    {
-      "id": "support_comment",
-      "section": "Atbalsts",
-      "type": "text",
-      "required": false,
-      "maxLength": 1000,
-      "multiline": true,
-      "title": "Pastāstiet, kā Jums gāja ar atbalsta dienestu",
-      "hint": "Kas patika un ko varētu darīt labāk?",
-      "placeholder": "Jūsu atbilde",
       "visibleIf": {
         "question": "support_tried",
         "equals": "tried"

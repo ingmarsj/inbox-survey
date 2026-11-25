@@ -11,7 +11,7 @@ const NOW = new Date(2026, 10, 3, 15, 30);
 const subs = [
   sub('a', at(3, 9, 0), at(3, 9, 4), { age_group: '25_34', gender: 'female' }),
   sub('b', at(3, 10, 0), at(3, 10, 2), { age_group: '35_44', gender: 'male' }),
-  sub('c', at(3, 14, 55), null, { age_group: '25_34', gender: 'male', years_using: '2' }),
+  sub('c', at(3, 14, 55), null, { age_group: '25_34', gender: 'male', years_using: '2_4' }),
   sub('d', at(3, 15, 10), at(3, 15, 20), { age_group: '25_34', gender: 'female' }),
   sub('e', at(3, 15, 25), null, {}),
   sub('f', at(2, 23, 30), at(2, 23, 40), { gender: 'female' }),
@@ -87,7 +87,7 @@ test('drop-off shows the last answered question of each unfinished submission', 
 });
 
 test('a write-in box counts as its question when finding where someone stopped', () => {
-  const stopped = [sub('w', at(3, 9), null, { age_group: '25_34', gender: 'male', years_using: '2', news_channel: ['other'], news_channel_other: 'Radio' })];
+  const stopped = [sub('w', at(3, 9), null, { age_group: '25_34', gender: 'male', years_using: '2_4', news_channel: ['other'], news_channel_other: 'Radio' })];
   assert.deepEqual(dropOff(config, stopped).rows.map((r) => r.id), ['news_channel']);
 });
 
@@ -105,16 +105,16 @@ test('durations and ages are written in Latvian', () => {
   assert.equal(formatAgo(new Date(2026, 10, 1, 12, 0), base), 'pirms 2 d');
 });
 
-test('the region filter narrows by region and combines with the other filters', () => {
+test('the city filter narrows by city and combines with the other filters', () => {
   const withRegion = [
-    sub('r1', at(3, 9, 0), at(3, 9, 4), { age_group: '25_34', gender: 'female', region: 'riga' }),
-    sub('r2', at(3, 10, 0), null, { age_group: '25_34', gender: 'male', region: 'latgale' }),
-    sub('r3', at(3, 11, 0), at(3, 11, 5), { age_group: '35_44', gender: 'female', region: 'riga' }),
+    sub('r1', at(3, 9, 0), at(3, 9, 4), { age_group: '25_34', gender: 'female', city: 'riga' }),
+    sub('r2', at(3, 10, 0), null, { age_group: '25_34', gender: 'male', city: 'daugavpils' }),
+    sub('r3', at(3, 11, 0), at(3, 11, 5), { age_group: '35_44', gender: 'female', city: 'riga' }),
     sub('r4', at(3, 12, 0), null, {}),
   ];
-  assert.deepEqual(filterSubmissions(withRegion, { region: 'riga' }).map((s) => s.id), ['r1', 'r3']);
-  assert.deepEqual(filterSubmissions(withRegion, { region: 'latgale' }).map((s) => s.id), ['r2']);
-  assert.deepEqual(filterSubmissions(withRegion, { region: 'abroad' }), []);
-  assert.deepEqual(filterSubmissions(withRegion, { region: '' }).length, 4, 'no region means everybody');
-  assert.deepEqual(filterSubmissions(withRegion, { region: 'riga', completedOnly: true, age: '25_34' }).map((s) => s.id), ['r1']);
+  assert.deepEqual(filterSubmissions(withRegion, { city: 'riga' }).map((s) => s.id), ['r1', 'r3']);
+  assert.deepEqual(filterSubmissions(withRegion, { city: 'daugavpils' }).map((s) => s.id), ['r2']);
+  assert.deepEqual(filterSubmissions(withRegion, { city: 'abroad' }), []);
+  assert.deepEqual(filterSubmissions(withRegion, { city: '' }).length, 4, 'no city means everybody');
+  assert.deepEqual(filterSubmissions(withRegion, { city: 'riga', completedOnly: true, age: '25_34' }).map((s) => s.id), ['r1']);
 });

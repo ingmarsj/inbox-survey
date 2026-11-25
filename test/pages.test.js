@@ -74,15 +74,15 @@ test('the checked-in config.js uses the Node server backend', () => {
 test('the statistics page has a filter for every demographic question, and the support KPI', () => {
   const html = readFileSync(new URL('../public/stats/index.html', import.meta.url), 'utf8');
   const script = readFileSync(new URL('../public/stats.js', import.meta.url), 'utf8');
-  for (const id of ['f-age', 'f-gender', 'f-region']) {
+  for (const id of ['f-age', 'f-gender', 'f-city']) {
     assert.match(html, new RegExp(`id="${id}"`), `${id} select`);
     assert.match(html, new RegExp(`id="${id}-wrap"`), `${id} wrapper`);
   }
-  assert.match(script, /fill\('f-region', 'f-region-wrap', 'region'/);
-  assert.match(script, /region: \$\('f-region'\)\.value/);
-  assert.match(script, /'f-region'\]\)/, 'the region select re-renders the answers');
+  assert.match(script, /fill\('f-city', 'f-city-wrap', 'city'/);
+  assert.match(script, /city: \$\('f-city'\)\.value/);
+  assert.match(script, /'f-city'\]\)/, 'the city select re-renders the answers');
   assert.match(script, /average\('support_rating'\)/);
   // every question the filters and KPIs rely on exists in the survey
   const ids = JSON.parse(readFileSync(new URL('../questions.json', import.meta.url), 'utf8')).questions.map((q) => q.id);
-  for (const id of ['age_group', 'gender', 'region', 'satisfaction', 'recommend', 'support_rating']) assert.ok(ids.includes(id), id);
+  for (const id of ['age_group', 'gender', 'city', 'satisfaction', 'recommend', 'support_rating']) assert.ok(ids.includes(id), id);
 });

@@ -51,7 +51,7 @@ export async function startServer(options = {}) {
 
 /**
  * A valid answer for every question on the respondent's path, optionally overridden.
- * By default the respondent uses Inbox.lv ("under_1" year) and sees every regular question;
+ * By default the respondent uses Inbox.lv ("0_1" years) and sees every regular question;
  * pass `years_using: 'not_using'` for the short path. Answers for questions that are hidden
  * on the resulting path are left out, just like a real respondent could not give them.
  */
@@ -63,7 +63,7 @@ export function validAnswers(overrides = {}) {
     else if (q.type === 'scale') out[q.id] = q.max;
     else out[q.id] = `Teksts: ${q.id}`;
   }
-  const merged = { ...out, years_using: 'under_1', ...overrides };
+  const merged = { ...out, years_using: '0_1', ...overrides };
   return Object.fromEntries(config.questions.filter((q) => isQuestionVisible(q, merged)).map((q) => [q.id, merged[q.id]]));
 }
 

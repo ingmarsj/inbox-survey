@@ -9,13 +9,13 @@ const MAX_DAYS = 60;
 const time = (value) => new Date(value).getTime();
 
 /** Narrows the submissions to what the filters on the page select. */
-export function filterSubmissions(subs, { completedOnly = false, age = '', gender = '', region = '' } = {}) {
+export function filterSubmissions(subs, { completedOnly = false, age = '', gender = '', city = '' } = {}) {
   return subs.filter(
     (s) =>
       (!completedOnly || s.completedAt) &&
       (!age || s.answers.age_group === age) &&
       (!gender || s.answers.gender === gender) &&
-      (!region || s.answers.region === region),
+      (!city || s.answers.city === city),
   );
 }
 
