@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDemoApi } from '../public/demo-api.js';
 import { config, validAnswers } from './helpers.js';
+import { isQuestionVisible } from '../questions.js';
 
 /** A minimal localStorage look-alike, shareable between two demo API instances. */
 function fakeStorage() {
@@ -59,7 +60,7 @@ test('demo API refuses to complete with required answers missing and then locks 
 
   const err = await failure(api('POST', `api/submissions/${id}/complete`));
   assert.equal(err.status, 422);
-  const required = config.questions.filter((q) => q.required).map((q) => q.id);
+  const required = config.questions.filter((q) => q.required && isQuestionVisible(q, { years_using: '1' })).map((q) => q.id);
   assert.deepEqual(err.data.missing, required.filter((qid) => qid !== 'years_using'));
 
   for (const [qid, value] of Object.entries(validAnswers())) await api('PUT', `api/submissions/${id}/answers/${qid}`, { value });
@@ -102,33 +103,47 @@ test('demo API works without usable localStorage (falls back to memory)', async 
   assert.equal((await api('GET', `api/submissions/${id}`)).answers.years_using, '4');
 });
 
-test('demo API follows the same short path for people who do not use Inbox.lv', async () => {
-  const api = newDemo();
-  const { id } = await api('POST', 'api/submissions');
-  await api('PUT', `api/submissions/${id}/answers/age_group`, { value: '25_34' });
-  await api('PUT', `api/submissions/${id}/answers/gender`, { value: 'female' });
-  await api('PUT', `api/submissions/${id}/answers/years_using`, { value: 'not_using' });
-
-  assert.equal((await failure(api('PUT', `api/submissions/${id}/answers/recommend`, { value: 4 }))).status, 400);
-  await api('PUT', `api/submissions/${id}/answers/not_using_reason`, { value: 'No need' });
-  await api('POST', `api/submissions/${id}/complete`); // nothing else is required once the demographics are answered
-
-  const sub = await api('GET', `api/submissions/${id}`);
-  assert.equal(sub.completed, true);
-  assert.deepEqual(sub.answers, { age_group: '25_34', gender: 'female', years_using: 'not_using', not_using_reason: 'No need' });
-});
-
-test('demo API drops answers that no longer belong to the path when the first answer changes', async () => {
+test('demo API asks about the support experience only after "Jā, vērsos atbalstā"', async () => {
   const api = newDemo();
   const { id } = await api('POST', 'api/submissions');
   const put = (qid, value) => api('PUT', `api/submissions/${id}/answers/${qid}`, { value });
-  await put('years_using', '2');
-  await put('recommend', 4);
-  await put('years_using', 'not_using');
-  assert.deepEqual((await api('GET', `api/submissions/${id}`)).answers, { years_using: 'not_using' });
-  await put('not_using_reason', 'No need');
-  await put('years_using', '1');
-  assert.deepEqual((await api('GET', `api/submissions/${id}`)).answers, { years_using: '1' });
+
+  assert.equal((await failure(put('support_rating', 4))).status, 400, 'not on the path yet');
+  await put('support_tried', 'knew');
+  assert.equal((await failure(put('support_rating', 4))).status, 400);
+  await put('support_tried', 'tried');
+  await put('support_rating', 4);
+  await put('support_comment', 'Ātri palīdzēja');
+  assert.deepEqual((await api('GET', `api/submissions/${id}`)).answers, { support_tried: 'tried', support_rating: 4, support_comment: 'Ātri palīdzēja' });
+});
+
+test('demo API requires the support rating once support was contacted', async () => {
+  const api = newDemo();
+  const { id } = await api('POST', 'api/submissions');
+  const put = (qid, value) => api('PUT', `api/submissions/${id}/answers/${qid}`, { value });
+  for (const [qid, value] of Object.entries(validAnswers({ support_tried: 'tried' }))) if (qid !== 'support_rating') await put(qid, value);
+  const err = await failure(api('POST', `api/submissions/${id}/complete`));
+  assert.equal(err.status, 422);
+  assert.deepEqual(err.data.missing, ['support_rating']);
+  await put('support_rating', 5);
+  await api('POST', `api/submissions/${id}/complete`);
+  assert.equal((await api('GET', `api/submissions/${id}`)).completed, true);
+});
+
+test('demo API drops the follow-up answers when the answer they depend on changes', async () => {
+  const api = newDemo();
+  const { id } = await api('POST', 'api/submissions');
+  const put = (qid, value) => api('PUT', `api/submissions/${id}/answers/${qid}`, { value });
+  const answers = async () => (await api('GET', `api/submissions/${id}`)).answers;
+  await put('support_tried', 'tried');
+  await put('support_rating', 4);
+  await put('support_tried', 'unknown');
+  assert.deepEqual(await answers(), { support_tried: 'unknown' });
+
+  await put('considered_leaving', 'yes');
+  await put('leaving_reason', 'Dārgi');
+  await put('considered_leaving', 'no');
+  assert.deepEqual(await answers(), { support_tried: 'unknown', considered_leaving: 'no' });
 });
 
 test('demo API handles the "Cits" write-in like the server', async () => {
@@ -137,7 +152,6 @@ test('demo API handles the "Cits" write-in like the server', async () => {
   const put = (qid, value) => api('PUT', `api/submissions/${id}/answers/${qid}`, { value });
   const answers = async () => (await api('GET', `api/submissions/${id}`)).answers;
 
-  await put('years_using', '2');
   assert.equal((await failure(put('news_channel_other', 'Telegram'))).status, 400, 'not on the path yet');
   await put('news_channel', ['other']);
   await put('news_channel_other', 'Telegram');
@@ -145,8 +159,9 @@ test('demo API handles the "Cits" write-in like the server', async () => {
   await put('news_channel', ['email']);
   assert.equal((await answers()).news_channel_other, undefined);
 
-  await put('news_channel', ['other']);
-  await put('news_channel_other', 'Telegram');
-  await put('years_using', 'not_using');
-  assert.deepEqual(await answers(), { years_using: 'not_using' });
+  await put('email_purpose', ['work', 'other']);
+  await put('email_purpose_other', 'Konkursiem');
+  assert.equal((await answers()).email_purpose_other, 'Konkursiem');
+  await put('email_purpose', ['work']);
+  assert.equal((await answers()).email_purpose_other, undefined);
 });

@@ -112,10 +112,11 @@ function buildFilters(config) {
   };
   fill('f-age', 'f-age-wrap', 'age_group', 'Visi vecumi');
   fill('f-gender', 'f-gender-wrap', 'gender', 'Visi dzimumi');
+  fill('f-region', 'f-region-wrap', 'region', 'Visas daļas');
   filtersBuilt = true;
 }
 
-const currentFilters = () => ({ completedOnly: $('f-mode').value === 'done', age: $('f-age').value, gender: $('f-gender').value });
+const currentFilters = () => ({ completedOnly: $('f-mode').value === 'done', age: $('f-age').value, gender: $('f-gender').value, region: $('f-region').value });
 
 function renderQuestion(q, fullLink) {
   const card = el('div', { class: 'card' }, el('h3', {}, q.title), el('p', { class: 'meta' }, `${q.section ? q.section + ' · ' : ''}atbildēja ${q.answered}`));
@@ -141,6 +142,7 @@ function renderAnswers() {
     kpi(view.length, `ieraksti atlasītajā skatā (${pct(view.length, subs.length)}% no visiem)`),
     kpi(fmt(average('satisfaction')), 'apmierinātība, vidēji no 5'),
     kpi(fmt(average('recommend')), 'ieteiks Inbox.lv, vidēji no 5'),
+    kpi(fmt(average('support_rating')), 'atbalsta dienesta pieredze, vidēji no 5'),
   );
   // A write-in box ("Cits: …") is free text, so it is read on the results page next to the other texts.
   $('questions').replaceChildren(...result.questions.filter((q) => !config.questions.find((c) => c.id === q.id).inline).map((q) => renderQuestion(q, $('full').href)));
@@ -185,11 +187,12 @@ async function refresh() {
   timer = setTimeout(refresh, REFRESH_MS);
 }
 
-for (const id of ['f-mode', 'f-age', 'f-gender']) $(id).addEventListener('change', () => data && renderAnswers());
+for (const id of ['f-mode', 'f-age', 'f-gender', 'f-region']) $(id).addEventListener('change', () => data && renderAnswers());
 $('reset').addEventListener('click', () => {
   $('f-mode').value = 'all';
   $('f-age').value = '';
   $('f-gender').value = '';
+  $('f-region').value = '';
   if (data) renderAnswers();
 });
 $('refresh').addEventListener('click', refresh);

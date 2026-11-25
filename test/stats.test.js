@@ -104,3 +104,17 @@ test('durations and ages are written in Latvian', () => {
   assert.equal(formatAgo(new Date(2026, 10, 3, 9, 0), base), 'pirms 3 h');
   assert.equal(formatAgo(new Date(2026, 10, 1, 12, 0), base), 'pirms 2 d');
 });
+
+test('the region filter narrows by region and combines with the other filters', () => {
+  const withRegion = [
+    sub('r1', at(3, 9, 0), at(3, 9, 4), { age_group: '25_34', gender: 'female', region: 'riga' }),
+    sub('r2', at(3, 10, 0), null, { age_group: '25_34', gender: 'male', region: 'latgale' }),
+    sub('r3', at(3, 11, 0), at(3, 11, 5), { age_group: '35_44', gender: 'female', region: 'riga' }),
+    sub('r4', at(3, 12, 0), null, {}),
+  ];
+  assert.deepEqual(filterSubmissions(withRegion, { region: 'riga' }).map((s) => s.id), ['r1', 'r3']);
+  assert.deepEqual(filterSubmissions(withRegion, { region: 'latgale' }).map((s) => s.id), ['r2']);
+  assert.deepEqual(filterSubmissions(withRegion, { region: 'abroad' }), []);
+  assert.deepEqual(filterSubmissions(withRegion, { region: '' }).length, 4, 'no region means everybody');
+  assert.deepEqual(filterSubmissions(withRegion, { region: 'riga', completedOnly: true, age: '25_34' }).map((s) => s.id), ['r1']);
+});

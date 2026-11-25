@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { startServer, validAnswers, config, TOKEN, rawGet } from './helpers.js';
+import { isQuestionVisible } from '../questions.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -119,7 +120,12 @@ test('rejects invalid answers with 400 and stores nothing', async () => {
       ['feedback_ease', 3],
       ['feedback_ease', 'martian'],
       ['age_group', 'ancient'],
-      ['one_word', 'x'.repeat(41)],
+      ['region', 'mars'],
+      ['email_frequency', 'hourly'],
+      ['inbox_products', 'mobile_app'],
+      ['inbox_products', ['mobile_app', 'nope']],
+      ['premium_used', 'maybe'],
+      ['considered_leaving', 'maybe'],
       ['pain_point', 'x'.repeat(1001)],
       ['pain_point', { a: 1 }],
     ];
@@ -157,7 +163,8 @@ test('cannot complete until every required question is answered', async () => {
     await s.answer(id, 'years_using', '3');
     const res = await s.call('POST', `/api/submissions/${id}/complete`);
     assert.equal(res.status, 422);
-    const required = config.questions.filter((q) => q.required).map((q) => q.id);
+    // required questions that are on the respondent's path (the support rating only exists for people who contacted support)
+    const required = config.questions.filter((q) => q.required && isQuestionVisible(q, { years_using: '3' })).map((q) => q.id);
     assert.deepEqual(res.json.missing, required.filter((qid) => qid !== 'years_using'));
     assert.equal(s.db.prepare('SELECT completed_at FROM submissions WHERE id = ?').get(id).completed_at, null);
   } finally {
@@ -222,9 +229,9 @@ test('results aggregate counts, averages and texts', async () => {
   const s = await startServer();
   try {
     // three finished respondents and one who stopped halfway
-    await submitAll(s, { years_using: '1', recommend: 5, feedback_channel: ['email_survey'], news_channel: ['email'], satisfaction: 5, one_word: 'ātrs' });
-    await submitAll(s, { years_using: '2', recommend: 4, feedback_channel: ['support_team'], news_channel: ['email', 'in_app'], satisfaction: 4, one_word: 'ērts' });
-    await submitAll(s, { years_using: '10_plus', recommend: 1, feedback_channel: ['mobile_app_form'], news_channel: ['social'], satisfaction: 2, one_word: 'lēns' });
+    await submitAll(s, { years_using: '1', recommend: 5, feedback_channel: ['email_survey'], news_channel: ['email'], satisfaction: 5, pain_point: 'ātrs' });
+    await submitAll(s, { years_using: '2', recommend: 4, feedback_channel: ['support_team'], news_channel: ['email', 'in_app'], satisfaction: 4, pain_point: 'ērts' });
+    await submitAll(s, { years_using: '10_plus', recommend: 1, feedback_channel: ['mobile_app_form'], news_channel: ['social'], satisfaction: 2, pain_point: 'lēns' });
     const partial = await s.newSubmission();
     await s.answer(partial, 'years_using', '2');
     await s.answer(partial, 'recommend', 3);
@@ -263,7 +270,7 @@ test('results aggregate counts, averages and texts', async () => {
     );
 
     assert.equal(q('satisfaction').average, (5 + 4 + 2) / 3);
-    assert.deepEqual(q('one_word').texts.map((x) => x.text).sort(), ['lēns', 'ātrs', 'ērts'].sort());
+    assert.deepEqual(q('pain_point').texts.map((x) => x.text).sort(), ['lēns', 'ātrs', 'ērts'].sort());
   } finally {
     await s.stop();
   }
@@ -285,7 +292,7 @@ test('results for an empty database do not crash', async () => {
 test('CSV export has a header, UTF-8 BOM, proper quoting and blocks formula injection', async () => {
   const s = await startServer();
   try {
-    await submitAll(s, { years_using: '3', pain_point: '=HYPERLINK("http://x")', anything_else: 'rinda 1\nrinda 2, ar komatu', one_word: 'ātrs' });
+    await submitAll(s, { years_using: '3', pain_point: '=HYPERLINK("http://x")', anything_else: 'rinda 1\nrinda 2, ar komatu' });
     const res = await s.call('GET', `/api/export.csv?token=${TOKEN}`);
     assert.equal(res.status, 200);
     assert.match(res.headers.get('content-type'), /text\/csv/);
@@ -293,7 +300,6 @@ test('CSV export has a header, UTF-8 BOM, proper quoting and blocks formula inje
     assert.ok(res.text.startsWith('﻿submission_id,created_at,completed_at,age_group,'));
     const header = res.text.slice(1).split('\r\n')[0].split(',');
     assert.deepEqual(header.slice(3), config.questions.map((q) => q.id));
-    assert.ok(res.text.includes('ātrs'));
     assert.ok(res.text.includes(`"'=HYPERLINK(""http://x"")"`), 'formula is neutralised and quotes are escaped');
     assert.ok(res.text.includes('"rinda 1\nrinda 2, ar komatu"'));
     assert.ok(res.text.includes('email|in_app'), 'multi answers are joined with |');
@@ -373,98 +379,146 @@ test('serves the pages and refuses to leave the public folder', async () => {
   }
 });
 
-/* ---------- the short path for people who do not use Inbox.lv ---------- */
+/* ---------- follow-up questions ---------- */
 
-test('a non-user can finish after the demographics and the first question, or add the reason and the free-text answers', async () => {
-  const s = await startServer();
-  try {
-    const quick = await s.newSubmission();
-    assert.equal((await s.answer(quick, 'age_group', '25_34')).status, 200);
-    assert.equal((await s.answer(quick, 'gender', 'no_answer')).status, 200);
-    assert.equal((await s.answer(quick, 'years_using', 'not_using')).status, 200);
-    assert.equal((await s.call('POST', `/api/submissions/${quick}/complete`)).status, 200);
-
-    const full = await submitAll(s, { years_using: 'not_using' });
-    const answers = (await s.call('GET', `/api/submissions/${full}`)).json.answers;
-    assert.deepEqual(Object.keys(answers).sort(), ['age_group', 'anything_else', 'gender', 'not_using_reason', 'one_word', 'years_using']);
-  } finally {
-    await s.stop();
-  }
-});
-
-test('answers to questions that are off the respondent path are rejected and not stored', async () => {
-  const s = await startServer();
-  try {
-    const nonUser = await s.newSubmission();
-    await s.answer(nonUser, 'years_using', 'not_using');
-    for (const [qid, value] of [['news_channel', ['email']], ['recommend', 4], ['pain_point', 'Slow']]) {
-      assert.equal((await s.answer(nonUser, qid, value)).status, 400, qid);
-    }
-
-    const user = await s.newSubmission();
-    await s.answer(user, 'years_using', '2');
-    assert.equal((await s.answer(user, 'not_using_reason', 'Because')).status, 400);
-    assert.equal((await s.answer(await s.newSubmission(), 'not_using_reason', 'Because')).status, 400, 'hidden until the first answer says so');
-
-    assert.deepEqual((await s.call('GET', `/api/submissions/${nonUser}`)).json.answers, { years_using: 'not_using' });
-    assert.deepEqual((await s.call('GET', `/api/submissions/${user}`)).json.answers, { years_using: '2' });
-  } finally {
-    await s.stop();
-  }
-});
-
-test('changing the first answer drops the answers that no longer belong to the new path', async () => {
+test('only people who contacted support are asked to rate it', async () => {
   const s = await startServer();
   try {
     const id = await s.newSubmission();
     const answers = async () => (await s.call('GET', `/api/submissions/${id}`)).json.answers;
 
-    await s.answer(id, 'years_using', '2');
-    await s.answer(id, 'news_channel', ['email']);
-    await s.answer(id, 'recommend', 4);
-    await s.answer(id, 'one_word', 'ātrs');
+    // hidden until the answer to the first question says so
+    assert.equal((await s.answer(id, 'support_rating', 4)).status, 400);
+    await s.answer(id, 'support_tried', 'knew');
+    assert.equal((await s.answer(id, 'support_rating', 4)).status, 400);
+    assert.equal((await s.answer(id, 'support_comment', 'Labi')).status, 400);
 
-    await s.answer(id, 'years_using', 'not_using'); // user -> non-user
-    assert.deepEqual(await answers(), { years_using: 'not_using', one_word: 'ātrs' });
-
-    await s.answer(id, 'not_using_reason', 'Use another mailbox');
-    assert.equal((await answers()).not_using_reason, 'Use another mailbox');
-
-    await s.answer(id, 'years_using', '3'); // non-user -> user
-    assert.deepEqual(await answers(), { years_using: '3', one_word: 'ātrs' });
-
-    // the database agrees with the API
-    const rows = s.db.prepare('SELECT question_id FROM answers WHERE submission_id = ? ORDER BY question_id').all(id);
-    assert.deepEqual(rows.map((r) => r.question_id), ['one_word', 'years_using']);
+    await s.answer(id, 'support_tried', 'tried');
+    assert.equal((await s.answer(id, 'support_rating', 4)).status, 200);
+    assert.equal((await s.answer(id, 'support_rating', 6)).status, 400, 'still a 1-5 scale');
+    assert.equal((await s.answer(id, 'support_comment', '  Ātri palīdzēja  ')).status, 200);
+    assert.deepEqual(await answers(), { support_tried: 'tried', support_rating: 4, support_comment: 'Ātri palīdzēja' });
   } finally {
     await s.stop();
   }
 });
 
-test('a user still has to answer every regular required question; the reason question is never required', async () => {
+test('changing the support answer drops the follow-up answers that no longer belong', async () => {
+  const s = await startServer();
+  try {
+    const id = await s.newSubmission();
+    const answers = async () => (await s.call('GET', `/api/submissions/${id}`)).json.answers;
+    await s.answer(id, 'years_using', '2');
+    await s.answer(id, 'support_tried', 'tried');
+    await s.answer(id, 'support_rating', 5);
+    await s.answer(id, 'support_comment', 'Super');
+
+    await s.answer(id, 'support_tried', 'unknown');
+    assert.deepEqual(await answers(), { years_using: '2', support_tried: 'unknown' });
+
+    await s.answer(id, 'support_tried', 'tried');
+    assert.deepEqual(await answers(), { years_using: '2', support_tried: 'tried' }, 'they are not brought back');
+    assert.equal((await s.answer(id, 'support_rating', 3)).status, 200);
+
+    // the database agrees with the API
+    const rows = s.db.prepare('SELECT question_id FROM answers WHERE submission_id = ? ORDER BY question_id').all(id);
+    assert.deepEqual(rows.map((r) => r.question_id), ['support_rating', 'support_tried', 'years_using']);
+  } finally {
+    await s.stop();
+  }
+});
+
+test('the reason for thinking about leaving is only asked of people who said Jā', async () => {
+  const s = await startServer();
+  try {
+    const id = await s.newSubmission();
+    const answers = async () => (await s.call('GET', `/api/submissions/${id}`)).json.answers;
+    assert.equal((await s.answer(id, 'leaving_reason', 'Lēns')).status, 400, 'hidden before the answer');
+    await s.answer(id, 'considered_leaving', 'no');
+    assert.equal((await s.answer(id, 'leaving_reason', 'Lēns')).status, 400);
+    await s.answer(id, 'considered_leaving', 'yes');
+    assert.equal((await s.answer(id, 'leaving_reason', 'Lēns')).status, 200);
+    assert.equal((await s.answer(id, 'leaving_reason', 'x'.repeat(1001))).status, 400);
+    assert.deepEqual(await answers(), { considered_leaving: 'yes', leaving_reason: 'Lēns' });
+    await s.answer(id, 'considered_leaving', 'no');
+    assert.deepEqual(await answers(), { considered_leaving: 'no' }, 'the reason goes when the answer changes to Nē');
+  } finally {
+    await s.stop();
+  }
+});
+
+test('the support rating becomes required only when it is shown; the comments never are', async () => {
+  const s = await startServer();
+  try {
+    // somebody who did not contact support finishes without any support follow-up
+    const knew = await submitAll(s, { support_tried: 'knew' });
+    assert.deepEqual(
+      Object.keys((await s.call('GET', `/api/submissions/${knew}`)).json.answers).filter((k) => k.startsWith('support_')),
+      ['support_tried'],
+    );
+
+    // somebody who did contact support has to rate it
+    const id = await s.newSubmission();
+    for (const [qid, value] of Object.entries(validAnswers({ support_tried: 'tried' }))) {
+      if (qid !== 'support_rating') await s.answer(id, qid, value);
+    }
+    const res = await s.call('POST', `/api/submissions/${id}/complete`);
+    assert.equal(res.status, 422);
+    assert.deepEqual(res.json.missing, ['support_rating']);
+    await s.answer(id, 'support_rating', 5);
+    assert.equal((await s.call('POST', `/api/submissions/${id}/complete`)).status, 200);
+  } finally {
+    await s.stop();
+  }
+});
+
+test('a respondent has to answer every required question on their path', async () => {
   const s = await startServer();
   try {
     const id = await s.newSubmission();
     await s.answer(id, 'years_using', '4');
     const res = await s.call('POST', `/api/submissions/${id}/complete`);
     assert.equal(res.status, 422);
-    assert.deepEqual(res.json.missing, ['age_group', 'gender', 'news_channel', 'news_frequency', 'feedback_channel', 'feedback_ease', 'satisfaction', 'recommend']);
+    assert.deepEqual(res.json.missing, [
+      'age_group', 'gender', 'region', 'email_frequency', 'email_purpose', 'inbox_products', 'news_channel', 'news_frequency',
+      'feedback_channel', 'feedback_ease', 'satisfaction', 'recommend', 'improvements_noticed', 'premium_used', 'support_tried', 'considered_leaving',
+    ]);
   } finally {
     await s.stop();
   }
 });
 
-test('results keep the "why not" answers apart from the users answers', async () => {
+test('results count the support rating only among the people who were asked', async () => {
   const s = await startServer();
   try {
-    await submitAll(s, { years_using: 'not_using', not_using_reason: 'No need' });
-    await submitAll(s, { years_using: '2', recommend: 4 });
+    await submitAll(s, { support_tried: 'tried', support_rating: 5, support_comment: 'Teicami', considered_leaving: 'yes', leaving_reason: 'Dārgi' });
+    await submitAll(s, { support_tried: 'knew', considered_leaving: 'no' });
+    await submitAll(s, { support_tried: 'unknown', considered_leaving: 'no' });
     const results = (await s.call('GET', `/api/results?token=${TOKEN}`)).json;
     const q = (id) => results.questions.find((x) => x.id === id);
-    assert.deepEqual(q('not_using_reason').texts, [{ text: 'No need' }]);
-    assert.equal(q('recommend').answered, 1, 'the non-user was never asked');
-    assert.equal(q('years_using').options.find((o) => o.value === 'not_using').count, 1);
-    assert.deepEqual(results.totals, { started: 2, completed: 2 });
+    assert.equal(q('support_tried').answered, 3);
+    assert.deepEqual(Object.fromEntries(q('support_tried').options.map((o) => [o.value, o.count])), { tried: 1, knew: 1, unknown: 1 });
+    assert.equal(q('support_rating').answered, 1);
+    assert.equal(q('support_rating').average, 5);
+    assert.deepEqual(q('support_comment').texts, [{ text: 'Teicami' }]);
+    assert.deepEqual(Object.fromEntries(q('considered_leaving').options.map((o) => [o.value, o.count])), { yes: 1, no: 2 });
+    assert.deepEqual(q('leaving_reason').texts, [{ text: 'Dārgi' }]);
+    assert.deepEqual(results.totals, { started: 3, completed: 3 });
+  } finally {
+    await s.stop();
+  }
+});
+
+test('the removed questions are not in the results or the export', async () => {
+  const s = await startServer();
+  try {
+    await submitAll(s);
+    const results = (await s.call('GET', `/api/results?token=${TOKEN}`)).json;
+    const ids = results.questions.map((q) => q.id);
+    assert.equal(ids.includes('one_word'), false);
+    assert.equal(ids.includes('not_using_reason'), false);
+    assert.equal((await s.call('GET', `/api/export.csv?token=${TOKEN}`)).text.includes('one_word'), false);
+    assert.equal((await s.answer(await s.newSubmission(), 'one_word', 'ātrs')).status, 404, 'cannot be answered any more');
   } finally {
     await s.stop();
   }
@@ -497,20 +551,19 @@ test('"Cits" in the news question takes a write-in text, which only exists while
   }
 });
 
-test('the write-in text is also removed when a non-user switch hides the whole news question', async () => {
+test('"Cits" in the e-mail purpose question works the same way', async () => {
   const s = await startServer();
   try {
     const id = await s.newSubmission();
-    await s.answer(id, 'years_using', '3');
-    await s.answer(id, 'news_channel', ['other']);
-    await s.answer(id, 'news_channel_other', 'Telegram');
-    await s.answer(id, 'years_using', 'not_using');
-    const answers = (await s.call('GET', `/api/submissions/${id}`)).json.answers;
-    assert.deepEqual(answers, { years_using: 'not_using' }, 'the news answer and its text are gone, not just the first');
-    assert.deepEqual(
-      s.db.prepare('SELECT question_id FROM answers WHERE submission_id = ?').all(id).map((r) => r.question_id),
-      ['years_using'],
-    );
+    const answers = async () => (await s.call('GET', `/api/submissions/${id}`)).json.answers;
+    await s.answer(id, 'email_purpose', ['work', 'spam']);
+    assert.equal((await s.answer(id, 'email_purpose_other', 'Konkursiem')).status, 400, 'hidden until "Cits" is chosen');
+    await s.answer(id, 'email_purpose', ['work', 'spam', 'other']);
+    assert.equal((await s.answer(id, 'email_purpose_other', '  Konkursiem  ')).status, 200);
+    assert.equal((await answers()).email_purpose_other, 'Konkursiem');
+    assert.equal((await s.answer(id, 'email_purpose_other', 'x'.repeat(201))).status, 400);
+    await s.answer(id, 'email_purpose', ['work']);
+    assert.deepEqual(await answers(), { email_purpose: ['work'] }, 'the text goes when "Cits" is unselected');
   } finally {
     await s.stop();
   }

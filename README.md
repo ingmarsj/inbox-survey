@@ -13,7 +13,7 @@ The same front end runs against three backends:
 ## Features
 
 - One question per screen, with a progress counter, a "Back" button and keyboard shortcuts (digits pick an answer, Enter continues).
-- Question types: single choice (buttons or dropdown), multiple choice, scale (e.g. 1–5) and free text, with optional conditional paths (for example a short path for non-users).
+- Question types: single choice (buttons or dropdown), multiple choice, scale (e.g. 1–5) and free text, with optional conditional follow-up questions (for example the support rating, which only people who contacted support are asked).
 - Answers are saved after every question, so a half-finished survey is not lost. Reloading resumes where the respondent stopped, and flaky Wi-Fi is handled by retrying in the background.
 - Anonymous: only a random submission ID is stored, no personal data.
 - Live results page and CSV export, protected by a secret token.
@@ -102,7 +102,7 @@ Everything lives in [`questions.json`](questions.json).
 - Types: `single`, `multi`, `scale` (`min` / `max`) and `text` (`maxLength`, `multiline`).
 - `"display": "dropdown"` renders a `single` question as a dropdown.
 - `"required": true` means the respondent cannot continue without an answer.
-- `"visibleIf": { "question": "years_using", "equals": "not_using" }` (or `"notEquals"`) shows a question only on some paths. It may refer to an earlier single-choice question that is itself always shown. The survey uses this to give people who do not use Inbox.lv a short path (why not, associations, free comment). Answers that stop belonging to the path when someone changes an earlier answer are dropped, and hidden questions are never required.
+- `"visibleIf": { "question": "support_tried", "equals": "tried" }` (or `"notEquals"`) shows a question only on some paths. It may refer to an earlier single-choice question. The survey uses this for the follow-ups to the support question and to "have you thought about leaving". Answers that stop belonging to the path when someone changes an earlier answer are dropped, and hidden questions are never required.
 - `"visibleIf": { "question": "news_channel", "includes": "other" }` works like `equals` / `notEquals`, but for an earlier **multiple-choice** question that must contain that option. A question may depend on a question that is itself conditional; when an answer is removed, everything that depended on it is removed too.
 - A "write-in" option such as "Cits": give the option `"writeIn": "<id>"` and add a text question with that id, `"inline": true` and `visibleIf { "question": <the multiple-choice question>, "includes": <the option> }`. The text box appears under the option while it is selected, the typed text is stored as its own answer (and shows up in the results and the CSV), and it is removed again if the option is unselected. Inline questions never get a screen of their own.
 - `"keyHint": false` hides the "Padoms: ciparu taustiņi…" keyboard tip under the answers of that question on desktop.

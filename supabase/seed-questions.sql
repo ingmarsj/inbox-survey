@@ -73,6 +73,45 @@ values (true, $survey_json$
       ]
     },
     {
+      "id": "region",
+      "section": "Par Jums",
+      "type": "single",
+      "display": "dropdown",
+      "required": true,
+      "title": "No kuras Latvijas daļas Jūs esat?",
+      "placeholder": "Izvēlieties",
+      "options": [
+        {
+          "value": "riga",
+          "label": "Rīga"
+        },
+        {
+          "value": "pieriga",
+          "label": "Pierīga (Rīgas apkārtne)"
+        },
+        {
+          "value": "vidzeme",
+          "label": "Vidzeme"
+        },
+        {
+          "value": "kurzeme",
+          "label": "Kurzeme"
+        },
+        {
+          "value": "zemgale",
+          "label": "Zemgale"
+        },
+        {
+          "value": "latgale",
+          "label": "Latgale"
+        },
+        {
+          "value": "abroad",
+          "label": "Dzīvoju ārpus Latvijas"
+        }
+      ]
+    },
+    {
       "id": "years_using",
       "section": "Par Jums",
       "type": "single",
@@ -81,10 +120,6 @@ values (true, $survey_json$
       "title": "Cik ilgi Jūs jau lietojat Inbox.lv?",
       "placeholder": "Izvēlieties",
       "options": [
-        {
-          "value": "not_using",
-          "label": "Nelietoju"
-        },
         {
           "value": "under_1",
           "label": "Mazāk par gadu"
@@ -116,19 +151,149 @@ values (true, $survey_json$
       ]
     },
     {
-      "id": "not_using_reason",
+      "id": "email_frequency",
+      "section": "Par Jums",
+      "type": "single",
+      "display": "dropdown",
+      "required": true,
+      "title": "Cik bieži Jūs lietojat Inbox.lv e-pastu?",
+      "placeholder": "Izvēlieties",
+      "options": [
+        {
+          "value": "daily",
+          "label": "Katru dienu"
+        },
+        {
+          "value": "several_week",
+          "label": "Vairākas reizes nedēļā"
+        },
+        {
+          "value": "weekly",
+          "label": "Reizi nedēļā"
+        },
+        {
+          "value": "several_month",
+          "label": "Pāris reizes mēnesī"
+        },
+        {
+          "value": "monthly_or_less",
+          "label": "Reizi mēnesī vai retāk"
+        }
+      ]
+    },
+    {
+      "id": "email_purpose",
+      "section": "Par Jums",
+      "type": "multi",
+      "required": true,
+      "maxSelect": 6,
+      "title": "Kam Jūs izmantojat Inbox.lv e-pastu?",
+      "hint": "Var izvēlēties vairākus.",
+      "options": [
+        {
+          "value": "work",
+          "label": "Darbam"
+        },
+        {
+          "value": "personal",
+          "label": "Privātai sarakstei"
+        },
+        {
+          "value": "signups",
+          "label": "Reģistrācijai interneta veikalos un pakalpojumos"
+        },
+        {
+          "value": "bills",
+          "label": "Rēķiniem un oficiāliem paziņojumiem"
+        },
+        {
+          "value": "spam",
+          "label": "Surogātpastam (reģistrācijām, kur nevēlos dot savu galveno e-pastu)"
+        },
+        {
+          "value": "other",
+          "label": "Cits",
+          "writeIn": "email_purpose_other"
+        }
+      ]
+    },
+    {
+      "id": "email_purpose_other",
       "section": "Par Jums",
       "type": "text",
+      "inline": true,
       "required": false,
-      "maxLength": 1000,
-      "multiline": true,
-      "title": "Kāpēc Jūs nelietojat Inbox.lv?",
-      "hint": "Pastāstiet saviem vārdiem.",
-      "placeholder": "Jūsu atbilde",
+      "maxLength": 200,
+      "multiline": false,
+      "title": "Cits: kam vēl izmantojat Inbox.lv e-pastu?",
+      "placeholder": "Ierakstiet, kam",
       "visibleIf": {
-        "question": "years_using",
-        "equals": "not_using"
+        "question": "email_purpose",
+        "includes": "other"
       }
+    },
+    {
+      "id": "inbox_products",
+      "section": "Par Jums",
+      "type": "multi",
+      "required": true,
+      "maxSelect": 13,
+      "title": "Kurus Inbox.lv produktus Jūs izmantojat?",
+      "hint": "E-pastu neminam. Var izvēlēties vairākus.",
+      "options": [
+        {
+          "value": "mobile_app",
+          "label": "Mobilā aplikācija"
+        },
+        {
+          "value": "files",
+          "label": "Files (failu glabāšana un sūtīšana)"
+        },
+        {
+          "value": "foto",
+          "label": "Foto"
+        },
+        {
+          "value": "calendar",
+          "label": "Kalendārs"
+        },
+        {
+          "value": "contacts",
+          "label": "Kontakti"
+        },
+        {
+          "value": "news",
+          "label": "Ziņas"
+        },
+        {
+          "value": "games",
+          "label": "Spēles"
+        },
+        {
+          "value": "dating",
+          "label": "Dating"
+        },
+        {
+          "value": "business",
+          "label": "Business"
+        },
+        {
+          "value": "inx",
+          "label": "Īsās saites (INX)"
+        },
+        {
+          "value": "pp",
+          "label": "PP.lv"
+        },
+        {
+          "value": "xtv",
+          "label": "XTV"
+        },
+        {
+          "value": "none",
+          "label": "Neizmantoju neko no šī"
+        }
+      ]
     },
     {
       "id": "news_channel",
@@ -160,11 +325,7 @@ values (true, $survey_json$
           "label": "Cits",
           "writeIn": "news_channel_other"
         }
-      ],
-      "visibleIf": {
-        "question": "years_using",
-        "notEquals": "not_using"
-      }
+      ]
     },
     {
       "id": "news_channel_other",
@@ -204,11 +365,7 @@ values (true, $survey_json$
           "value": "not_interested",
           "label": "Neinteresē Inbox.lv jaunumi"
         }
-      ],
-      "visibleIf": {
-        "question": "years_using",
-        "notEquals": "not_using"
-      }
+      ]
     },
     {
       "id": "feedback_channel",
@@ -235,11 +392,7 @@ values (true, $survey_json$
           "value": "social",
           "label": "Sociālajos tīklos"
         }
-      ],
-      "visibleIf": {
-        "question": "years_using",
-        "notEquals": "not_using"
-      }
+      ]
     },
     {
       "id": "feedback_ease",
@@ -272,11 +425,7 @@ values (true, $survey_json$
           "value": "no_need",
           "label": "Nesaskatu nepieciešamību"
         }
-      ],
-      "visibleIf": {
-        "question": "years_using",
-        "notEquals": "not_using"
-      }
+      ]
     },
     {
       "id": "satisfaction",
@@ -288,10 +437,6 @@ values (true, $survey_json$
       "title": "Cik Jūs kopumā esat apmierināti ar Inbox.lv?",
       "minLabel": "Neapmierināts",
       "maxLabel": "Ļoti apmierināts",
-      "visibleIf": {
-        "question": "years_using",
-        "notEquals": "not_using"
-      },
       "keyHint": false
     },
     {
@@ -304,11 +449,111 @@ values (true, $survey_json$
       "title": "Cik ticams, ka Jūs ieteiktu Inbox.lv draugam vai kolēģim?",
       "minLabel": "Noteikti ne",
       "maxLabel": "Noteikti jā",
-      "visibleIf": {
-        "question": "years_using",
-        "notEquals": "not_using"
-      },
       "keyHint": false
+    },
+    {
+      "id": "improvements_noticed",
+      "section": "Uzlabojumi un Premium",
+      "type": "single",
+      "required": true,
+      "title": "Vai Jūs esat pamanījuši uzlabojumus, ko esam veikuši Inbox.lv pēdējā laikā?",
+      "options": [
+        {
+          "value": "many",
+          "label": "Jā, pamanīju daudz uzlabojumu"
+        },
+        {
+          "value": "some",
+          "label": "Jā, pamanīju dažus"
+        },
+        {
+          "value": "none",
+          "label": "Nē, neko nepamanīju"
+        },
+        {
+          "value": "hard_to_say",
+          "label": "Grūti pateikt"
+        }
+      ]
+    },
+    {
+      "id": "premium_used",
+      "section": "Uzlabojumi un Premium",
+      "type": "single",
+      "display": "dropdown",
+      "required": true,
+      "title": "Vai Jūs esat lietojuši Inbox.lv Premium?",
+      "placeholder": "Izvēlieties",
+      "options": [
+        {
+          "value": "now",
+          "label": "Jā, lietoju šobrīd"
+        },
+        {
+          "value": "before",
+          "label": "Jā, agrāk lietoju"
+        },
+        {
+          "value": "never_known",
+          "label": "Nē, zinu par Premium, bet nelietoju"
+        },
+        {
+          "value": "unknown",
+          "label": "Nezināju, ka tāds ir"
+        }
+      ]
+    },
+    {
+      "id": "support_tried",
+      "section": "Atbalsts",
+      "type": "single",
+      "required": true,
+      "title": "Vai Jūs esat vērsušies Inbox.lv atbalsta dienestā? Tajā strādā īsti cilvēki, kas Jums palīdzēs un runā 5 dažādās valodās.",
+      "options": [
+        {
+          "value": "tried",
+          "label": "Jā, vērsos atbalstā"
+        },
+        {
+          "value": "knew",
+          "label": "Nē, bet zināju, ka tāds ir"
+        },
+        {
+          "value": "unknown",
+          "label": "Nē, nezināju, ka tāds ir"
+        }
+      ]
+    },
+    {
+      "id": "support_rating",
+      "section": "Atbalsts",
+      "type": "scale",
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "title": "Kāda bija Jūsu pieredze ar atbalsta dienestu?",
+      "minLabel": "Slikta",
+      "maxLabel": "Teicama",
+      "keyHint": false,
+      "visibleIf": {
+        "question": "support_tried",
+        "equals": "tried"
+      }
+    },
+    {
+      "id": "support_comment",
+      "section": "Atbalsts",
+      "type": "text",
+      "required": false,
+      "maxLength": 1000,
+      "multiline": true,
+      "title": "Pastāstiet, kā Jums gāja ar atbalsta dienestu",
+      "hint": "Kas patika un ko varētu darīt labāk?",
+      "placeholder": "Jūsu atbilde",
+      "visibleIf": {
+        "question": "support_tried",
+        "equals": "tried"
+      }
     },
     {
       "id": "pain_point",
@@ -318,21 +563,39 @@ values (true, $survey_json$
       "maxLength": 1000,
       "multiline": true,
       "title": "Kas Jums Inbox.lv šobrīd traucē visvairāk?",
-      "placeholder": "Jūsu atbilde",
-      "visibleIf": {
-        "question": "years_using",
-        "notEquals": "not_using"
-      }
+      "placeholder": "Jūsu atbilde"
     },
     {
-      "id": "one_word",
-      "section": "Asociācijas",
+      "id": "considered_leaving",
+      "section": "Pieredze",
+      "type": "single",
+      "required": true,
+      "title": "Vai esat apsvēruši vairs neizmantot Inbox.lv?",
+      "options": [
+        {
+          "value": "yes",
+          "label": "Jā"
+        },
+        {
+          "value": "no",
+          "label": "Nē"
+        }
+      ]
+    },
+    {
+      "id": "leaving_reason",
+      "section": "Pieredze",
       "type": "text",
       "required": false,
-      "maxLength": 40,
-      "multiline": false,
-      "title": "Aprakstiet Inbox.lv vienā vārdā",
-      "placeholder": "Piemēram: ātrs"
+      "maxLength": 1000,
+      "multiline": true,
+      "title": "Kāpēc esat par to domājuši?",
+      "hint": "Pastāstiet saviem vārdiem.",
+      "placeholder": "Jūsu atbilde",
+      "visibleIf": {
+        "question": "considered_leaving",
+        "equals": "yes"
+      }
     },
     {
       "id": "anything_else",
