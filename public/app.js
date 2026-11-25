@@ -251,7 +251,6 @@ function renderQuestion() {
   }
 
   const counter = `${position + 1} / ${path.length}`;
-  const usesKeys = q.keyHint !== false && (q.type === 'multi' || q.type === 'scale' || (q.type === 'single' && q.display !== 'dropdown'));
   render(
     [
       el('p', { class: 'eyebrow' }, q.section ? `${q.section} · ${counter}` : counter),
@@ -260,7 +259,6 @@ function renderQuestion() {
     ],
     [
       body,
-      usesKeys ? el('p', { class: 'kbd-hint' }, 'Padoms: ciparu taustiņi izvēlas atbildi, Enter ved tālāk.') : null,
       el('p', { class: 'error', id: 'error', hidden: true }),
       actions,
     ],

@@ -13,7 +13,7 @@ test('the shipped questions.json is valid and has the expected shape', () => {
   assert.ok(config.intro.button);
   const ids = config.questions.map((q) => q.id);
   assert.equal(new Set(ids).size, ids.length, 'ids are unique');
-  assert.deepEqual(ids.slice(0, 3), ['age_group', 'gender', 'region'], 'demographics come first');
+  assert.deepEqual(ids.slice(0, 3), ['age_group', 'gender', 'city'], 'demographics come first');
   assert.equal(config.questions.some((q) => q.id.startsWith('direction_')), false, 'no direction questions');
 });
 
@@ -43,10 +43,10 @@ test('loadConfig refuses broken configs', () => {
 });
 
 test('single choice accepts only listed options', () => {
-  const q = byId('news_frequency');
-  assert.deepEqual(validateAnswer(q, 'monthly'), { ok: true, value: 'monthly' });
+  const q = byId('improvements_noticed');
+  assert.deepEqual(validateAnswer(q, 'many'), { ok: true, value: 'many' });
   assert.equal(validateAnswer(q, 'martian').ok, false);
-  assert.equal(validateAnswer(q, ['monthly']).ok, false);
+  assert.equal(validateAnswer(q, ['many']).ok, false);
   assert.equal(validateAnswer(q, 3).ok, false);
   assert.equal(validateAnswer(q, null).ok, false, 'required question cannot be cleared');
 });
@@ -74,9 +74,10 @@ test('the years question is a required dropdown with the agreed ranges', () => {
   assert.equal(years.display, 'dropdown');
   assert.equal(years.required, true);
   // Everybody who gets the survey uses Inbox.lv, so there is no "Nelietoju" option any more.
-  assert.deepEqual(years.options.map((o) => o.label), ['Mazāk par gadu', '1 gads', '2 gadi', '3 gadi', '4 gadi', '5–9 gadi', '10+ gadi']);
+  assert.deepEqual(years.options.map((o) => o.label), ['0–1 gads', '2–4 gadi', '5–9 gadi', '10+ gadi']);
+  assert.deepEqual(years.options.map((o) => o.value), ['0_1', '2_4', '5_9', '10_plus']);
   assert.equal(years.options.some((o) => o.value === 'not_using'), false);
-  assert.deepEqual(validateAnswer(years, 'under_1'), { ok: true, value: 'under_1' });
+  assert.deepEqual(validateAnswer(years, '0_1'), { ok: true, value: '0_1' });
   for (const bad of ['0', '11', 5, '', null, undefined, ['1']]) assert.equal(validateAnswer(years, bad).ok, false, String(bad));
 });
 
@@ -112,23 +113,21 @@ test('text is trimmed, length-limited, and optional text can be cleared', () => 
 test('the shipped survey follows the marketing wording and order', () => {
   const ids = config.questions.map((q) => q.id);
   assert.deepEqual(ids, [
-    'age_group', 'gender', 'region', 'years_using', 'email_frequency', 'email_purpose', 'email_purpose_other', 'inbox_products',
-    'news_channel', 'news_channel_other', 'news_frequency',
+    'age_group', 'gender', 'city', 'years_using', 'email_frequency', 'email_purpose', 'email_purpose_other', 'inbox_products',
+    'news_channel', 'news_channel_other',
     'feedback_channel', 'feedback_ease', 'satisfaction', 'recommend',
     'improvements_noticed', 'premium_used',
-    'support_tried', 'support_rating', 'support_comment',
+    'support_tried', 'support_rating',
     'pain_point', 'considered_leaving', 'leaving_reason', 'anything_else',
   ]);
   // Questions that were taken out on purpose
-  for (const gone of ['not_using_reason', 'one_word']) assert.equal(ids.includes(gone), false, gone);
+  for (const gone of ['not_using_reason', 'one_word', 'news_frequency', 'support_comment']) assert.equal(ids.includes(gone), false, gone);
 
   // Q2: shorter labels, and the newsletter option is gone
   assert.deepEqual(byId('news_channel').options.map((o) => o.label), [
     'E-pastā', 'Ziņojums aplikācijā', 'Sociālajos tīklos', 'Klātienes vai online pasākumos', 'Cits',
   ]);
   assert.equal(byId('news_channel').options.some((o) => o.value === 'newsletter'), false);
-  // Q3: people can say they are not interested in news
-  assert.equal(byId('news_frequency').options.at(-1).label, 'Neinteresē Inbox.lv jaunumi');
 
   // The product is called Inbox.lv everywhere
   for (const q of config.questions) {
@@ -144,6 +143,7 @@ test('the shipped survey follows the marketing wording and order', () => {
   assert.deepEqual(sections, ['Par Jums', 'Jaunumi', 'Atsauksmes', 'Uzlabojumi un Premium', 'Atbalsts', 'Pieredze', 'Jūsu viedoklis']);
   assert.equal(byId('pain_point').section, 'Pieredze');
   assert.equal(byId('anything_else').section, 'Jūsu viedoklis');
+  assert.equal(byId('satisfaction').title, 'Cik Jūs kopumā esat apmierināts/a ar Inbox.lv?');
 });
 
 test('nobody gets a "non-user" path: the survey goes to Inbox.lv users only', () => {
@@ -153,32 +153,29 @@ test('nobody gets a "non-user" path: the survey goes to Inbox.lv users only', ()
     ['email_purpose_other', 'email_purpose'],
     ['news_channel_other', 'news_channel'],
     ['support_rating', 'support_tried'],
-    ['support_comment', 'support_tried'],
     ['leaving_reason', 'considered_leaving'],
   ]);
   assert.equal(config.questions.some((q) => JSON.stringify(q.visibleIf ?? {}).includes('not_using')), false);
 });
 
-test('follow-up questions: support experience and the reason for thinking about leaving', () => {
+test('follow-up questions: the support rating and the reason for thinking about leaving', () => {
   const visible = (answers) => config.questions.filter((q) => isQuestionVisible(q, answers)).map((q) => q.id);
   const base = visible({});
-  assert.equal(base.length, config.questions.length - 5, 'with no answers the five follow-ups are hidden');
-  for (const id of ['support_rating', 'support_comment', 'leaving_reason', 'email_purpose_other', 'news_channel_other']) assert.ok(!base.includes(id), id);
+  assert.equal(base.length, config.questions.length - 4, 'with no answers the four follow-ups are hidden');
+  for (const id of ['support_rating', 'leaving_reason', 'email_purpose_other', 'news_channel_other']) assert.ok(!base.includes(id), id);
 
-  const tried = visible({ support_tried: 'tried' });
-  assert.ok(tried.includes('support_rating') && tried.includes('support_comment'));
-  for (const answer of ['knew', 'unknown']) {
-    assert.ok(!visible({ support_tried: answer }).includes('support_rating'), answer);
-    assert.ok(!visible({ support_tried: answer }).includes('support_comment'), answer);
-  }
+  // the support rating is shown only to people who answered "Jā, esmu vērsies"
+  assert.ok(visible({ support_tried: 'tried' }).includes('support_rating'));
+  for (const answer of ['knew', 'unknown']) assert.ok(!visible({ support_tried: answer }).includes('support_rating'), answer);
+  assert.deepEqual(byId('support_rating').visibleIf, { question: 'support_tried', equals: 'tried' });
+
   assert.ok(visible({ considered_leaving: 'yes' }).includes('leaving_reason'));
   assert.ok(!visible({ considered_leaving: 'no' }).includes('leaving_reason'));
 
-  // The rating is required once it is shown, the comments are optional.
+  // The rating is required once it is shown, the reason is optional.
   assert.equal(byId('support_rating').required, true);
-  assert.equal(byId('support_comment').required, false);
   assert.equal(byId('leaving_reason').required, false);
-  assert.deepEqual(hiddenAnsweredIds(config.questions, { support_tried: 'knew', support_rating: 4, support_comment: 'x' }), ['support_rating', 'support_comment']);
+  assert.deepEqual(hiddenAnsweredIds(config.questions, { support_tried: 'knew', support_rating: 4 }), ['support_rating']);
 });
 
 test('isQuestionVisible and hiddenAnsweredIds', () => {
@@ -270,8 +267,9 @@ test('news channels: "Cits" lets people write their own, and some options are go
   assert.deepEqual(text.visibleIf, { question: 'news_channel', includes: 'other' });
 });
 
-test('the frequency question has no weekly option', () => {
-  assert.deepEqual(byId('news_frequency').options.map((o) => o.value), ['monthly', 'quarterly', 'important_only', 'not_interested']);
+test('the question about how often to get news is gone; the channel question stays', () => {
+  assert.equal(byId('news_frequency'), undefined);
+  assert.ok(byId('news_channel'));
 });
 
 test('where to leave feedback is a multiple-choice question with the agreed options', () => {
@@ -286,11 +284,12 @@ test('where to leave feedback is a multiple-choice question with the agreed opti
   assert.equal(validateAnswer(q, []).ok, false);
 });
 
-test('the keyboard tip is hidden on the satisfaction, recommendation and support scales only', () => {
-  const scales = ['satisfaction', 'recommend', 'support_rating'];
-  for (const id of scales) assert.equal(byId(id).keyHint, false, id);
-  for (const q of config.questions.filter((x) => !scales.includes(x.id))) {
-    assert.notEqual(q.keyHint, false, q.id);
+test('there is no keyboard tip ("Padoms: ciparu taustiņi…") on any question', async () => {
+  const { readFileSync } = await import('node:fs');
+  for (const q of config.questions) assert.equal(q.keyHint, undefined, q.id);
+  for (const file of ['../public/app.js', '../public/style.css', '../questions.json']) {
+    const text = readFileSync(new URL(file, import.meta.url), 'utf8');
+    assert.doesNotMatch(text, /Padoms|kbd-hint|keyHint/, file);
   }
 });
 
@@ -357,20 +356,37 @@ test('write-in options are checked: they need a matching inline text question', 
   }
 });
 
-test('region: a required dropdown with the parts of Latvia and "abroad"', () => {
-  const q = byId('region');
+test('city: a required dropdown with every city of Latvia, then "other place" and "abroad"', () => {
+  const q = byId('city');
   assert.equal(q.type, 'single');
   assert.equal(q.display, 'dropdown');
   assert.equal(q.required, true);
-  assert.equal(q.title, 'No kuras Latvijas daļas Jūs esat?');
-  assert.deepEqual(q.options.map((o) => o.value), ['riga', 'pieriga', 'vidzeme', 'kurzeme', 'zemgale', 'latgale', 'abroad']);
-  assert.equal(q.options.at(-1).label, 'Dzīvoju ārpus Latvijas');
-  assert.equal(validateAnswer(q, 'latgale').ok, true);
+  assert.equal(q.title, 'No kuras Latvijas pilsētas Jūs esat?');
+  assert.equal(byId('region'), undefined, 'the old region question is gone');
+
+  const labels = q.options.map((o) => o.label);
+  const cities = labels.slice(0, -2);
+  assert.equal(cities.length, 82, 'all 82 cities of Latvia (10 state cities and 72 other towns)');
+  assert.equal(cities[0], 'Rīga', 'Rīga comes first');
+  for (const name of ['Rīga', 'Daugavpils', 'Liepāja', 'Jelgava', 'Jūrmala', 'Ventspils', 'Rēzekne', 'Valmiera', 'Jēkabpils', 'Ogre', 'Carnikava', 'Zilupe', 'Ainaži']) {
+    assert.ok(cities.includes(name), name);
+  }
+  assert.deepEqual(cities.slice(1), [...cities.slice(1)].sort((a, b) => a.localeCompare(b, 'lv')), 'the rest is in Latvian alphabetical order');
+  assert.equal(new Set(labels).size, labels.length, 'no city is listed twice');
+  assert.equal(new Set(q.options.map((o) => o.value)).size, q.options.length, 'values are unique');
+  assert.ok(q.options.every((o) => /^[a-z0-9_]+$/.test(o.value)), 'values are plain ASCII');
+  assert.deepEqual(q.options.slice(-2).map((o) => [o.value, o.label]), [
+    ['other_latvia', 'Cita vieta Latvijā (ciems vai lauku teritorija)'],
+    ['abroad', 'Dzīvoju ārpus Latvijas'],
+  ]);
+  assert.equal(q.options.find((o) => o.label === 'Rīga').value, 'riga');
+  assert.equal(q.options.find((o) => o.label === 'Ķekava').value, 'kekava');
+  assert.equal(validateAnswer(q, 'daugavpils').ok, true);
   assert.equal(validateAnswer(q, 'mars').ok, false);
   assert.equal(validateAnswer(q, null).ok, false);
 });
 
-test('how often and what for: a frequency dropdown and a multiple-choice with a "Cits" write-in', () => {
+test('how often and what for: a frequency dropdown and a multiple choice with a "Cits" write-in', () => {
   const how = byId('email_frequency');
   assert.equal(how.display, 'dropdown');
   assert.equal(how.required, true);
@@ -379,29 +395,43 @@ test('how often and what for: a frequency dropdown and a multiple-choice with a 
   const what = byId('email_purpose');
   assert.equal(what.type, 'multi');
   assert.equal(what.required, true);
-  assert.deepEqual(what.options.map((o) => o.value), ['work', 'personal', 'signups', 'bills', 'spam', 'other']);
+  assert.equal(what.title, 'Kādam nolūkam Jūs izmantojat Inbox.lv e-pastu?');
+  assert.deepEqual(what.options.map((o) => o.value), ['work', 'personal', 'signups', 'spam', 'other']);
+  assert.equal(what.options.find((o) => o.value === 'personal').label, 'Privātām vajadzībām');
+  assert.equal(what.options.some((o) => /Rēķiniem|oficiāl/i.test(o.label)), false, 'bills and official notices were taken out');
   assert.ok(what.options.find((o) => o.value === 'spam').label.startsWith('Surogātpastam'), 'spam is one of the answers');
   assert.equal(what.options.at(-1).writeIn, 'email_purpose_other');
   assert.equal(what.maxSelect, what.options.length);
   assert.equal(validateAnswer(what, ['work', 'personal', 'spam']).ok, true);
+  assert.equal(validateAnswer(what, ['work', 'bills']).ok, false, 'an option that was removed');
   assert.equal(validateAnswer(what, ['work', 'martian']).ok, false);
   const other = byId('email_purpose_other');
   assert.equal(other.inline, true);
   assert.deepEqual(other.visibleIf, { question: 'email_purpose', includes: 'other' });
 });
 
-test('Inbox.lv products: a multiple choice with the mobile app, without e-mail', () => {
+test('Inbox.lv products: the mobile app and the services, without e-mail, Dating, PP.lv and XTV', () => {
   const q = byId('inbox_products');
   assert.equal(q.type, 'multi');
   assert.equal(q.required, true);
-  assert.deepEqual(q.options.map((o) => o.value), [
-    'mobile_app', 'files', 'foto', 'calendar', 'contacts', 'news', 'games', 'dating', 'business', 'inx', 'pp', 'xtv', 'none',
+  assert.deepEqual(q.options.map((o) => [o.value, o.label]), [
+    ['mobile_app', 'Mobilā aplikācija'],
+    ['files', 'Files (failu glabāšana un sūtīšana)'],
+    ['foto', 'Foto'],
+    ['calendar', 'Kalendārs'],
+    ['contacts', 'Kontakti'],
+    ['news', 'Ziņas'],
+    ['games', 'Spēles'],
+    ['business', 'Business (inbox.eu)'],
+    ['inx', 'Saišu saīsinātājs'],
+    ['none', 'Neizmantoju neko no šī'],
   ]);
-  assert.equal(q.options[0].label, 'Mobilā aplikācija');
+  for (const gone of ['dating', 'pp', 'xtv']) assert.equal(q.options.some((o) => o.value === gone), false, gone);
   assert.equal(q.options.some((o) => /e-?pasts|mail/i.test(o.label)), false, 'e-mail is not listed');
   assert.equal(q.options.at(-1).value, 'none', 'there is an answer for people who use none of them');
   assert.equal(q.maxSelect, q.options.length, 'every product can be ticked at once');
   assert.equal(validateAnswer(q, q.options.map((o) => o.value)).ok, true);
+  assert.equal(validateAnswer(q, ['dating']).ok, false);
   assert.equal(validateAnswer(q, []).ok, false);
 });
 
@@ -414,23 +444,29 @@ test('improvements, Premium and support', () => {
   const premium = byId('premium_used');
   assert.equal(premium.display, 'dropdown');
   assert.equal(premium.required, true);
-  assert.deepEqual(premium.options.map((o) => o.value), ['now', 'before', 'never_known', 'unknown']);
-  assert.equal(premium.options.at(-1).label, 'Nezināju, ka tāds ir');
+  assert.deepEqual(premium.options.map((o) => [o.value, o.label]), [
+    ['now', 'Jā, lietoju šobrīd'],
+    ['before', 'Jā, agrāk lietoju'],
+    ['never_known', 'Zinu par Premium, bet nelietoju'],
+    ['unknown', 'Nezināju, ka tāds ir'],
+  ]);
 
   const tried = byId('support_tried');
   assert.equal(tried.type, 'single');
   assert.equal(tried.required, true);
-  assert.match(tried.title, /atbalsta dienest/);
-  assert.match(tried.title, /īsti cilvēki/);
-  assert.match(tried.title, /5 dažādās valodās/);
-  assert.deepEqual(tried.options.map((o) => o.value), ['tried', 'knew', 'unknown']);
+  assert.equal(tried.title, 'Vai Jūs esat vērsušies pēc palīdzības Inbox.lv tehniskajā atbalsta dienestā?*');
+  assert.equal(tried.hint, '* Mūsu atbalsta dienestā strādā īsti cilvēki un runā 5 dažādās valodās');
+  assert.deepEqual(tried.options.map((o) => [o.value, o.label]), [
+    ['tried', 'Jā, esmu vērsies'],
+    ['knew', 'Nē, bet zināju, ka ir tāda iespēja'],
+    ['unknown', 'Nē, nezināju, ka ir tāda iespēja'],
+  ]);
 
   const rating = byId('support_rating');
   assert.equal(rating.type, 'scale');
   assert.deepEqual([rating.min, rating.max], [1, 5]);
   assert.deepEqual(rating.visibleIf, { question: 'support_tried', equals: 'tried' });
-  assert.equal(byId('support_comment').type, 'text');
-  assert.deepEqual(byId('support_comment').visibleIf, { question: 'support_tried', equals: 'tried' });
+  assert.equal(byId('support_comment'), undefined, 'the support comment question is gone');
 });
 
 test('thinking about leaving: Jā/Nē, then an optional reason for those who said Jā', () => {

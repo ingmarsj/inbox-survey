@@ -94,7 +94,7 @@ test('a whole survey through the Supabase client, end to end', async () => {
 test('only the publishable key is sent, to the RPC endpoints of the project', async () => {
   const api = newApi();
   const { id } = await api('POST', 'api/submissions');
-  await api('PUT', `api/submissions/${id}/answers/years_using`, { value: '2' });
+  await api('PUT', `api/submissions/${id}/answers/years_using`, { value: '2_4' });
   await api('GET', `api/submissions/${id}`);
 
   assert.equal(calls.length, 3);
@@ -118,7 +118,7 @@ test('database errors become the same statuses the Node server uses', async () =
   const unknown = '00000000-0000-4000-8000-000000000000';
 
   assert.equal((await failure(api('GET', `api/submissions/${unknown}`))).status, 404);
-  assert.equal((await failure(api('PUT', `api/submissions/${unknown}/answers/years_using`, { value: '1' }))).status, 404);
+  assert.equal((await failure(api('PUT', `api/submissions/${unknown}/answers/years_using`, { value: '0_1' }))).status, 404);
   assert.equal((await failure(put('no_such_question', 'x'))).status, 404);
   assert.equal((await failure(put('years_using', 'martian'))).status, 400);
   assert.equal((await failure(put('recommend', 9))).status, 400);
@@ -130,16 +130,16 @@ test('database errors become the same statuses the Node server uses', async () =
 test('completing with required answers missing is a 422 that lists them, and a finished survey is locked (409)', async () => {
   const api = newApi();
   const { id } = await api('POST', 'api/submissions');
-  await api('PUT', `api/submissions/${id}/answers/years_using`, { value: '3' });
+  await api('PUT', `api/submissions/${id}/answers/years_using`, { value: '2_4' });
 
   const err = await failure(api('POST', `api/submissions/${id}/complete`));
   assert.equal(err.status, 422);
-  const required = config.questions.filter((q) => q.required && isQuestionVisible(q, { years_using: '3' })).map((q) => q.id);
+  const required = config.questions.filter((q) => q.required && isQuestionVisible(q, { years_using: '2_4' })).map((q) => q.id);
   assert.deepEqual(err.data.missing, required.filter((qid) => qid !== 'years_using'));
 
   for (const [qid, value] of Object.entries(validAnswers())) await api('PUT', `api/submissions/${id}/answers/${qid}`, { value });
   await api('POST', `api/submissions/${id}/complete`);
-  assert.equal((await failure(api('PUT', `api/submissions/${id}/answers/years_using`, { value: '1' }))).status, 409);
+  assert.equal((await failure(api('PUT', `api/submissions/${id}/answers/years_using`, { value: '0_1' }))).status, 409);
 });
 
 test('an answer can be cleared with null, and a follow-up goes when its trigger changes', async () => {
@@ -175,12 +175,12 @@ test('a server error from Supabase keeps its status (the page retries on 5xx)', 
 test('the results export works with the token and is refused without it', async () => {
   const api = newApi();
   const { id } = await api('POST', 'api/submissions');
-  await api('PUT', `api/submissions/${id}/answers/years_using`, { value: '2' });
+  await api('PUT', `api/submissions/${id}/answers/years_using`, { value: '2_4' });
 
   assert.equal((await failure(api.rpc('survey_export', { p_token: 'wrong' }))).status, 401);
   const exported = await api.rpc('survey_export', { p_token: TOKEN });
   assert.equal(exported.submissions.length, 1);
-  assert.deepEqual(exported.submissions[0].answers, { years_using: '2' });
+  assert.deepEqual(exported.submissions[0].answers, { years_using: '2_4' });
 });
 
 test('the wrong API key is rejected before anything runs', async () => {

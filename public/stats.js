@@ -112,11 +112,11 @@ function buildFilters(config) {
   };
   fill('f-age', 'f-age-wrap', 'age_group', 'Visi vecumi');
   fill('f-gender', 'f-gender-wrap', 'gender', 'Visi dzimumi');
-  fill('f-region', 'f-region-wrap', 'region', 'Visas daļas');
+  fill('f-city', 'f-city-wrap', 'city', 'Visas pilsētas');
   filtersBuilt = true;
 }
 
-const currentFilters = () => ({ completedOnly: $('f-mode').value === 'done', age: $('f-age').value, gender: $('f-gender').value, region: $('f-region').value });
+const currentFilters = () => ({ completedOnly: $('f-mode').value === 'done', age: $('f-age').value, gender: $('f-gender').value, city: $('f-city').value });
 
 function renderQuestion(q, fullLink) {
   const card = el('div', { class: 'card' }, el('h3', {}, q.title), el('p', { class: 'meta' }, `${q.section ? q.section + ' · ' : ''}atbildēja ${q.answered}`));
@@ -187,12 +187,12 @@ async function refresh() {
   timer = setTimeout(refresh, REFRESH_MS);
 }
 
-for (const id of ['f-mode', 'f-age', 'f-gender', 'f-region']) $(id).addEventListener('change', () => data && renderAnswers());
+for (const id of ['f-mode', 'f-age', 'f-gender', 'f-city']) $(id).addEventListener('change', () => data && renderAnswers());
 $('reset').addEventListener('click', () => {
   $('f-mode').value = 'all';
   $('f-age').value = '';
   $('f-gender').value = '';
-  $('f-region').value = '';
+  $('f-city').value = '';
   if (data) renderAnswers();
 });
 $('refresh').addEventListener('click', refresh);

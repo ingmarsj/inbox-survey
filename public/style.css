@@ -285,8 +285,6 @@ select.field {
 
 /* ---------- screen layout: head + body ---------- */
 
-.kbd-hint { display: none; }
-
 /* ---------- desktop ---------- */
 
 @media (min-width: 960px) {
@@ -325,17 +323,11 @@ select.field {
   .btn { padding: 15px 32px; }
   .btn-big { padding: 20px 56px; font-size: 20px; }
 
-  .kbd-hint { display: block; margin: 22px 0 0; color: var(--muted); font-size: 14px; }
-
   /* results: two cards per row, free text across the full width */
   #questions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 8px; }
   #questions .card { margin-top: 0; }
   #questions .card-wide { grid-column: 1 / -1; }
   .stat b { font-size: 52px; }
-}
-
-@media (hover: none) {
-  .kbd-hint { display: none !important; }
 }
 
 @media (min-width: 960px) {

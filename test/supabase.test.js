@@ -102,13 +102,13 @@ test('SQL validation agrees with the JavaScript validation for every question an
 test('SQL visibility rules agree with the JavaScript ones', async () => {
   const situations = [
     {},
-    { years_using: 'under_1' },
-    { years_using: '3' },
-    { years_using: '3', news_channel: ['other'] },
-    { years_using: '3', news_channel: ['email', 'other'] },
-    { years_using: '3', news_channel: ['email'] },
-    { years_using: '3', news_channel: [] },
-    { years_using: '3', news_channel: 'other' }, // a stale single value from an older version of the question
+    { years_using: '0_1' },
+    { years_using: '2_4' },
+    { years_using: '2_4', news_channel: ['other'] },
+    { years_using: '2_4', news_channel: ['email', 'other'] },
+    { years_using: '2_4', news_channel: ['email'] },
+    { years_using: '2_4', news_channel: [] },
+    { years_using: '2_4', news_channel: 'other' }, // a stale single value from an older version of the question
     { email_purpose: ['work', 'other'] },
     { email_purpose: ['work'] },
     { support_tried: 'tried' },
@@ -145,24 +145,24 @@ test('a respondent can go through the whole survey', async () => {
 
 test('progress is saved as the respondent goes, so reloading resumes', async () => {
   const id = await create();
-  await save(id, 'years_using', '2');
+  await save(id, 'years_using', '2_4');
   await save(id, 'recommend', 4);
-  assert.deepEqual(await get(id), { id, completed: false, answers: { years_using: '2', recommend: 4 } });
+  assert.deepEqual(await get(id), { id, completed: false, answers: { years_using: '2_4', recommend: 4 } });
 });
 
 test('changing an answer overwrites it; optional text can be cleared, required answers cannot', async () => {
   const id = await create();
-  await save(id, 'years_using', '1');
-  await save(id, 'years_using', '2');
+  await save(id, 'years_using', '0_1');
+  await save(id, 'years_using', '2_4');
   assert.equal((await db.query('select count(*)::int as n from public.survey_answers where submission_id = $1', [id])).rows[0].n, 1);
-  assert.equal((await answersOf(id)).years_using, '2');
+  assert.equal((await answersOf(id)).years_using, '2_4');
 
   await save(id, 'pain_point', 'Slow');
   await save(id, 'pain_point', '   ');
   assert.equal((await answersOf(id)).pain_point, undefined);
 
   await assert.rejects(save(id, 'years_using', null), /survey_invalid: This question is required/);
-  assert.equal((await answersOf(id)).years_using, '2');
+  assert.equal((await answersOf(id)).years_using, '2_4');
 });
 
 test('invalid answers are rejected and nothing is stored', async () => {
@@ -176,7 +176,7 @@ test('invalid answers are rejected and nothing is stored', async () => {
     ['recommend', '4'],
     ['feedback_ease', 3],
     ['age_group', 'ancient'],
-    ['region', 'mars'],
+    ['city', 'mars'],
     ['email_frequency', 'hourly'],
     ['inbox_products', 'mobile_app'],
     ['inbox_products', ['mobile_app', 'nope']],
@@ -193,7 +193,7 @@ test('invalid answers are rejected and nothing is stored', async () => {
 test('unknown submissions and questions are refused', async () => {
   const id = await create();
   const unknown = '00000000-0000-4000-8000-000000000000';
-  await assert.rejects(save(unknown, 'years_using', '1'), /survey_not_found/);
+  await assert.rejects(save(unknown, 'years_using', '0_1'), /survey_not_found/);
   await assert.rejects(get(unknown), /survey_not_found/);
   await assert.rejects(complete(unknown), /survey_not_found/);
   await assert.rejects(save(id, 'no_such_question', 'x'), /survey_question_not_found/);
@@ -201,15 +201,15 @@ test('unknown submissions and questions are refused', async () => {
 
 test('completing needs every required question; then the submission is locked', async () => {
   const id = await create();
-  await save(id, 'years_using', '4');
+  await save(id, 'years_using', '2_4');
   // only the required questions that are on this respondent's path (the support rating needs "Jā, vērsos atbalstā")
-  const required = config.questions.filter((q) => q.required && isQuestionVisible(q, { years_using: '4' })).map((q) => q.id);
+  const required = config.questions.filter((q) => q.required && isQuestionVisible(q, { years_using: '2_4' })).map((q) => q.id);
   assert.deepEqual(await complete(id), { ok: false, missing: required.filter((qid) => qid !== 'years_using') });
 
   for (const [qid, value] of Object.entries(validAnswers())) await save(id, qid, value);
   assert.deepEqual(await complete(id), { ok: true });
   assert.deepEqual(await complete(id), { ok: true }, 'completing twice is harmless');
-  await assert.rejects(save(id, 'years_using', '2'), /survey_already_submitted/);
+  await assert.rejects(save(id, 'years_using', '2_4'), /survey_already_submitted/);
 });
 
 test('optional questions may stay empty and the survey still completes', async () => {
@@ -222,7 +222,7 @@ test('optional questions may stay empty and the survey still completes', async (
 
 test('"Cits": the write-in text only exists while "Cits" is selected, and goes with its question', async () => {
   const id = await create();
-  await save(id, 'years_using', '2');
+  await save(id, 'years_using', '2_4');
   await assert.rejects(save(id, 'news_channel_other', 'My blog'), /survey_not_on_path/);
 
   await save(id, 'news_channel', ['email', 'other']);
@@ -244,43 +244,40 @@ test('"Cits": the write-in text only exists while "Cits" is selected, and goes w
 
 test('feedback channels take several answers', async () => {
   const id = await create();
-  await save(id, 'years_using', '2');
+  await save(id, 'years_using', '2_4');
   await save(id, 'feedback_channel', ['email_survey', 'social', 'email_survey']);
   assert.deepEqual((await answersOf(id)).feedback_channel, ['email_survey', 'social'], 'duplicates are dropped');
   await assert.rejects(save(id, 'feedback_channel', 'social'), /survey_invalid: Invalid answer/);
   await assert.rejects(save(id, 'feedback_channel', ['email_reply']), /survey_invalid: Invalid answer/, 'an option that was removed');
 });
 
-test('the support rating and comment are on the path only after "Jā, vērsos atbalstā"', async () => {
+test('the support rating is on the path only after "Jā, esmu vērsies"', async () => {
   const id = await create();
   await assert.rejects(save(id, 'support_rating', 4), /survey_not_on_path/, 'hidden until the first answer says so');
   await save(id, 'support_tried', 'knew');
   await assert.rejects(save(id, 'support_rating', 4), /survey_not_on_path/);
-  await assert.rejects(save(id, 'support_comment', 'Labi'), /survey_not_on_path/);
 
   await save(id, 'support_tried', 'tried');
   await save(id, 'support_rating', 4);
   await assert.rejects(save(id, 'support_rating', 6), /survey_invalid/);
-  await save(id, 'support_comment', '  Ātri palīdzēja  ');
-  assert.deepEqual(await answersOf(id), { support_tried: 'tried', support_rating: 4, support_comment: 'Ātri palīdzēja' });
+  assert.deepEqual(await answersOf(id), { support_tried: 'tried', support_rating: 4 });
 });
 
 test('changing the answer they depend on drops the follow-up answers', async () => {
   const id = await create();
-  await save(id, 'years_using', '2');
+  await save(id, 'years_using', '2_4');
   await save(id, 'support_tried', 'tried');
   await save(id, 'support_rating', 5);
-  await save(id, 'support_comment', 'Super');
   await save(id, 'considered_leaving', 'yes');
   await save(id, 'leaving_reason', 'Dārgi');
 
   await save(id, 'support_tried', 'unknown');
-  assert.deepEqual(await answersOf(id), { years_using: '2', support_tried: 'unknown', considered_leaving: 'yes', leaving_reason: 'Dārgi' });
+  assert.deepEqual(await answersOf(id), { years_using: '2_4', support_tried: 'unknown', considered_leaving: 'yes', leaving_reason: 'Dārgi' });
   await save(id, 'considered_leaving', 'no');
-  assert.deepEqual(await answersOf(id), { years_using: '2', support_tried: 'unknown', considered_leaving: 'no' });
+  assert.deepEqual(await answersOf(id), { years_using: '2_4', support_tried: 'unknown', considered_leaving: 'no' });
 
   await save(id, 'support_tried', 'tried');
-  assert.deepEqual(await answersOf(id), { years_using: '2', support_tried: 'tried', considered_leaving: 'no' }, 'dropped answers do not come back');
+  assert.deepEqual(await answersOf(id), { years_using: '2_4', support_tried: 'tried', considered_leaving: 'no' }, 'dropped answers do not come back');
 
   // the database agrees with the API
   const rows = await db.query('select question_id from public.survey_answers where submission_id = $1 order by question_id', [id]);
@@ -300,9 +297,12 @@ test('somebody who did not contact support finishes without any support follow-u
 
 test('the removed questions are refused', async () => {
   const id = await create();
-  await assert.rejects(save(id, 'one_word', 'ātrs'), /survey_question_not_found/);
-  await assert.rejects(save(id, 'not_using_reason', 'Because'), /survey_question_not_found/);
-  await assert.rejects(save(id, 'years_using', 'not_using'), /survey_invalid/);
+  for (const removed of ['one_word', 'not_using_reason', 'news_frequency', 'support_comment', 'region']) {
+    await assert.rejects(save(id, removed, 'x'), /survey_question_not_found/, removed);
+  }
+  for (const [qid, value] of [['years_using', 'not_using'], ['years_using', 'under_1'], ['email_purpose', ['bills']], ['inbox_products', ['dating']], ['inbox_products', ['xtv']]]) {
+    await assert.rejects(save(id, qid, value), /survey_invalid/, `${qid}=${JSON.stringify(value)}`);
+  }
 });
 
 /* ---------- results ---------- */
@@ -317,10 +317,10 @@ test('the results export needs the secret token', async () => {
 });
 
 test('the export feeds the same aggregation as the Node server', async () => {
-  await submitAll({ years_using: '1', recommend: 5, feedback_channel: ['email_survey'], news_channel: ['email'], satisfaction: 5, pain_point: 'ātrs', support_tried: 'tried', support_rating: 5, considered_leaving: 'no' });
-  await submitAll({ years_using: '2', recommend: 4, feedback_channel: ['support_team'], news_channel: ['email', 'in_app'], satisfaction: 4, pain_point: 'ērts', support_tried: 'knew', considered_leaving: 'yes', leaving_reason: 'Dārgi' });
+  await submitAll({ years_using: '0_1', recommend: 5, feedback_channel: ['email_survey'], news_channel: ['email'], satisfaction: 5, pain_point: 'ātrs', support_tried: 'tried', support_rating: 5, considered_leaving: 'no' });
+  await submitAll({ years_using: '2_4', recommend: 4, feedback_channel: ['support_team'], news_channel: ['email', 'in_app'], satisfaction: 4, pain_point: 'ērts', support_tried: 'knew', considered_leaving: 'yes', leaving_reason: 'Dārgi' });
   const partial = await create();
-  await save(partial, 'years_using', '2');
+  await save(partial, 'years_using', '2_4');
   await save(partial, 'recommend', 3);
 
   const exported = await rpc('survey_export', TOKEN);
@@ -354,8 +354,8 @@ test('the public API key cannot read or write the tables, only call the survey f
 
     // ...but the respondent flow works for anon
     const id = await create();
-    await save(id, 'years_using', '2');
-    assert.equal((await answersOf(id)).years_using, '2');
+    await save(id, 'years_using', '2_4');
+    assert.equal((await answersOf(id)).years_using, '2_4');
     assert.equal((await rpc('survey_get_config')).questions.length, config.questions.length);
     await assert.rejects(rpc('survey_export', 'wrong'), /survey_unauthorized/);
   } finally {
