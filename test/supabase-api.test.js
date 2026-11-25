@@ -5,6 +5,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { createSupabaseApi } from '../public/supabase-api.js';
 import { currentSeedSql } from '../scripts/build-supabase-sql.mjs';
 import { config, validAnswers } from './helpers.js';
+import { isQuestionVisible } from '../questions.js';
 
 // The browser client talks to the real SQL functions: a tiny stand-in for Supabase's REST layer
 // (PostgREST) turns POST /rest/v1/rpc/<name> into a call on an in-process Postgres (PGlite).
@@ -121,7 +122,8 @@ test('database errors become the same statuses the Node server uses', async () =
   assert.equal((await failure(put('no_such_question', 'x'))).status, 404);
   assert.equal((await failure(put('years_using', 'martian'))).status, 400);
   assert.equal((await failure(put('recommend', 9))).status, 400);
-  assert.equal((await failure(put('not_using_reason', 'Because'))).status, 400, 'off the path');
+  assert.equal((await failure(put('support_rating', 4))).status, 400, 'off the path');
+  assert.equal((await failure(put('one_word', 'x'))).status, 404, 'a removed question');
   assert.equal((await failure(api('GET', 'api/unknown'))).status, 404);
 });
 
@@ -132,7 +134,7 @@ test('completing with required answers missing is a 422 that lists them, and a f
 
   const err = await failure(api('POST', `api/submissions/${id}/complete`));
   assert.equal(err.status, 422);
-  const required = config.questions.filter((q) => q.required).map((q) => q.id);
+  const required = config.questions.filter((q) => q.required && isQuestionVisible(q, { years_using: '3' })).map((q) => q.id);
   assert.deepEqual(err.data.missing, required.filter((qid) => qid !== 'years_using'));
 
   for (const [qid, value] of Object.entries(validAnswers())) await api('PUT', `api/submissions/${id}/answers/${qid}`, { value });
@@ -140,7 +142,7 @@ test('completing with required answers missing is a 422 that lists them, and a f
   assert.equal((await failure(api('PUT', `api/submissions/${id}/answers/years_using`, { value: '1' }))).status, 409);
 });
 
-test('an answer can be cleared with null, and a non-user gets the short path', async () => {
+test('an answer can be cleared with null, and a follow-up goes when its trigger changes', async () => {
   const api = newApi();
   const { id } = await api('POST', 'api/submissions');
   const put = (qid, value) => api('PUT', `api/submissions/${id}/answers/${qid}`, { value });
@@ -148,10 +150,11 @@ test('an answer can be cleared with null, and a non-user gets the short path', a
   await put('pain_point', null);
   assert.equal((await api('GET', `api/submissions/${id}`)).answers.pain_point, undefined);
 
-  await put('age_group', '25_34');
-  await put('gender', 'female');
-  await put('years_using', 'not_using');
-  assert.deepEqual(await api('POST', `api/submissions/${id}/complete`), { ok: true });
+  await put('support_tried', 'tried');
+  await put('support_rating', 4);
+  await put('support_tried', 'knew');
+  assert.deepEqual((await api('GET', `api/submissions/${id}`)).answers, { support_tried: 'knew' });
+  assert.equal((await failure(put('support_rating', 4))).status, 400);
 });
 
 test('a network failure is reported as one, so the page keeps retrying', async () => {

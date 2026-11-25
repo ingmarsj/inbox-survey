@@ -2,7 +2,7 @@ import test, { before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
-import { validateAnswer } from '../questions.js';
+import { validateAnswer, isQuestionVisible } from '../questions.js';
 import { aggregateSubmissions } from '../public/aggregate.js';
 import { currentSeedSql, SEED_FILE } from '../scripts/build-supabase-sql.mjs';
 import { config, validAnswers } from './helpers.js';
@@ -100,10 +100,8 @@ test('SQL validation agrees with the JavaScript validation for every question an
 });
 
 test('SQL visibility rules agree with the JavaScript ones', async () => {
-  const { isQuestionVisible } = await import('../questions.js');
   const situations = [
     {},
-    { years_using: 'not_using' },
     { years_using: 'under_1' },
     { years_using: '3' },
     { years_using: '3', news_channel: ['other'] },
@@ -111,6 +109,16 @@ test('SQL visibility rules agree with the JavaScript ones', async () => {
     { years_using: '3', news_channel: ['email'] },
     { years_using: '3', news_channel: [] },
     { years_using: '3', news_channel: 'other' }, // a stale single value from an older version of the question
+    { email_purpose: ['work', 'other'] },
+    { email_purpose: ['work'] },
+    { support_tried: 'tried' },
+    { support_tried: 'knew' },
+    { support_tried: 'unknown' },
+    { support_tried: 'martian' },
+    { considered_leaving: 'yes' },
+    { considered_leaving: 'no' },
+    { years_using: 'not_using' }, // an option that no longer exists: nothing special happens
+    { support_tried: 'tried', considered_leaving: 'yes', email_purpose: ['other'], news_channel: ['other'] },
   ];
   for (const answers of situations) {
     for (const q of config.questions) {
@@ -168,7 +176,12 @@ test('invalid answers are rejected and nothing is stored', async () => {
     ['recommend', '4'],
     ['feedback_ease', 3],
     ['age_group', 'ancient'],
-    ['one_word', 'x'.repeat(41)],
+    ['region', 'mars'],
+    ['email_frequency', 'hourly'],
+    ['inbox_products', 'mobile_app'],
+    ['inbox_products', ['mobile_app', 'nope']],
+    ['premium_used', 'maybe'],
+    ['considered_leaving', 'maybe'],
     ['pain_point', { a: 1 }],
   ];
   for (const [qid, value] of cases) {
@@ -189,7 +202,8 @@ test('unknown submissions and questions are refused', async () => {
 test('completing needs every required question; then the submission is locked', async () => {
   const id = await create();
   await save(id, 'years_using', '4');
-  const required = config.questions.filter((q) => q.required).map((q) => q.id);
+  // only the required questions that are on this respondent's path (the support rating needs "Jā, vērsos atbalstā")
+  const required = config.questions.filter((q) => q.required && isQuestionVisible(q, { years_using: '4' })).map((q) => q.id);
   assert.deepEqual(await complete(id), { ok: false, missing: required.filter((qid) => qid !== 'years_using') });
 
   for (const [qid, value] of Object.entries(validAnswers())) await save(id, qid, value);
@@ -204,7 +218,7 @@ test('optional questions may stay empty and the survey still completes', async (
   assert.deepEqual(await complete(id), { ok: true });
 });
 
-/* ---------- the short path for people who do not use Inbox.lv ---------- */
+/* ---------- follow-up questions ---------- */
 
 test('"Cits": the write-in text only exists while "Cits" is selected, and goes with its question', async () => {
   const id = await create();
@@ -219,11 +233,13 @@ test('"Cits": the write-in text only exists while "Cits" is selected, and goes w
   await save(id, 'news_channel', ['email']);
   assert.equal((await answersOf(id)).news_channel_other, undefined, 'unselecting "Cits" removes the text');
 
-  // the cascade: hiding the whole news question also removes the text that depended on it
-  await save(id, 'news_channel', ['other']);
-  await save(id, 'news_channel_other', 'Telegram');
-  await save(id, 'years_using', 'not_using');
-  assert.deepEqual(await answersOf(id), { years_using: 'not_using' });
+  // the same for the e-mail purpose question
+  await assert.rejects(save(id, 'email_purpose_other', 'Konkursiem'), /survey_not_on_path/);
+  await save(id, 'email_purpose', ['work', 'other']);
+  await save(id, 'email_purpose_other', 'Konkursiem');
+  assert.equal((await answersOf(id)).email_purpose_other, 'Konkursiem');
+  await save(id, 'email_purpose', ['work']);
+  assert.equal((await answersOf(id)).email_purpose_other, undefined);
 });
 
 test('feedback channels take several answers', async () => {
@@ -235,42 +251,58 @@ test('feedback channels take several answers', async () => {
   await assert.rejects(save(id, 'feedback_channel', ['email_reply']), /survey_invalid: Invalid answer/, 'an option that was removed');
 });
 
-test('non-users have a short path: demographics, first answer, then reason and free text', async () => {
+test('the support rating and comment are on the path only after "Jā, vērsos atbalstā"', async () => {
   const id = await create();
-  await save(id, 'age_group', '25_34');
-  await save(id, 'gender', 'no_answer');
-  await save(id, 'years_using', 'not_using');
-  assert.deepEqual(await complete(id), { ok: true });
+  await assert.rejects(save(id, 'support_rating', 4), /survey_not_on_path/, 'hidden until the first answer says so');
+  await save(id, 'support_tried', 'knew');
+  await assert.rejects(save(id, 'support_rating', 4), /survey_not_on_path/);
+  await assert.rejects(save(id, 'support_comment', 'Labi'), /survey_not_on_path/);
 
-  const full = await submitAll({ years_using: 'not_using' });
-  assert.deepEqual(Object.keys(await answersOf(full)).sort(), ['age_group', 'anything_else', 'gender', 'not_using_reason', 'one_word', 'years_using']);
+  await save(id, 'support_tried', 'tried');
+  await save(id, 'support_rating', 4);
+  await assert.rejects(save(id, 'support_rating', 6), /survey_invalid/);
+  await save(id, 'support_comment', '  Ātri palīdzēja  ');
+  assert.deepEqual(await answersOf(id), { support_tried: 'tried', support_rating: 4, support_comment: 'Ātri palīdzēja' });
 });
 
-test('answers for questions off the respondent path are rejected', async () => {
-  const nonUser = await create();
-  await save(nonUser, 'years_using', 'not_using');
-  for (const [qid, value] of [['news_channel', ['email']], ['recommend', 4], ['pain_point', 'Slow']]) {
-    await assert.rejects(save(nonUser, qid, value), /survey_not_on_path/, qid);
-  }
-  const user = await create();
-  await save(user, 'years_using', '2');
-  await assert.rejects(save(user, 'not_using_reason', 'Because'), /survey_not_on_path/);
-  await assert.rejects(save(await create(), 'not_using_reason', 'Because'), /survey_not_on_path/, 'hidden until the first answer says so');
-});
-
-test('changing the first answer drops the answers that no longer belong to the new path', async () => {
+test('changing the answer they depend on drops the follow-up answers', async () => {
   const id = await create();
   await save(id, 'years_using', '2');
-  await save(id, 'news_channel', ['email']);
-  await save(id, 'recommend', 4);
-  await save(id, 'one_word', 'ātrs');
+  await save(id, 'support_tried', 'tried');
+  await save(id, 'support_rating', 5);
+  await save(id, 'support_comment', 'Super');
+  await save(id, 'considered_leaving', 'yes');
+  await save(id, 'leaving_reason', 'Dārgi');
 
-  await save(id, 'years_using', 'not_using');
-  assert.deepEqual(await answersOf(id), { years_using: 'not_using', one_word: 'ātrs' });
+  await save(id, 'support_tried', 'unknown');
+  assert.deepEqual(await answersOf(id), { years_using: '2', support_tried: 'unknown', considered_leaving: 'yes', leaving_reason: 'Dārgi' });
+  await save(id, 'considered_leaving', 'no');
+  assert.deepEqual(await answersOf(id), { years_using: '2', support_tried: 'unknown', considered_leaving: 'no' });
 
-  await save(id, 'not_using_reason', 'Use another mailbox');
-  await save(id, 'years_using', '3');
-  assert.deepEqual(await answersOf(id), { years_using: '3', one_word: 'ātrs' });
+  await save(id, 'support_tried', 'tried');
+  assert.deepEqual(await answersOf(id), { years_using: '2', support_tried: 'tried', considered_leaving: 'no' }, 'dropped answers do not come back');
+
+  // the database agrees with the API
+  const rows = await db.query('select question_id from public.survey_answers where submission_id = $1 order by question_id', [id]);
+  assert.deepEqual(rows.rows.map((r) => r.question_id), ['considered_leaving', 'support_tried', 'years_using']);
+});
+
+test('somebody who did not contact support finishes without any support follow-up; one who did must rate it', async () => {
+  const knew = await submitAll({ support_tried: 'knew' });
+  assert.deepEqual(Object.keys(await answersOf(knew)).filter((k) => k.startsWith('support_')), ['support_tried']);
+
+  const id = await create();
+  for (const [qid, value] of Object.entries(validAnswers({ support_tried: 'tried' }))) if (qid !== 'support_rating') await save(id, qid, value);
+  assert.deepEqual(await complete(id), { ok: false, missing: ['support_rating'] });
+  await save(id, 'support_rating', 5);
+  assert.deepEqual(await complete(id), { ok: true });
+});
+
+test('the removed questions are refused', async () => {
+  const id = await create();
+  await assert.rejects(save(id, 'one_word', 'ātrs'), /survey_question_not_found/);
+  await assert.rejects(save(id, 'not_using_reason', 'Because'), /survey_question_not_found/);
+  await assert.rejects(save(id, 'years_using', 'not_using'), /survey_invalid/);
 });
 
 /* ---------- results ---------- */
@@ -285,27 +317,27 @@ test('the results export needs the secret token', async () => {
 });
 
 test('the export feeds the same aggregation as the Node server', async () => {
-  await submitAll({ years_using: '1', recommend: 5, feedback_channel: ['email_survey'], news_channel: ['email'], satisfaction: 5, one_word: 'ātrs' });
-  await submitAll({ years_using: '2', recommend: 4, feedback_channel: ['support_team'], news_channel: ['email', 'in_app'], satisfaction: 4, one_word: 'ērts' });
-  await submitAll({ years_using: 'not_using', not_using_reason: 'No need' });
+  await submitAll({ years_using: '1', recommend: 5, feedback_channel: ['email_survey'], news_channel: ['email'], satisfaction: 5, pain_point: 'ātrs', support_tried: 'tried', support_rating: 5, considered_leaving: 'no' });
+  await submitAll({ years_using: '2', recommend: 4, feedback_channel: ['support_team'], news_channel: ['email', 'in_app'], satisfaction: 4, pain_point: 'ērts', support_tried: 'knew', considered_leaving: 'yes', leaving_reason: 'Dārgi' });
   const partial = await create();
   await save(partial, 'years_using', '2');
   await save(partial, 'recommend', 3);
 
   const exported = await rpc('survey_export', TOKEN);
-  assert.equal(exported.submissions.length, 4);
+  assert.equal(exported.submissions.length, 3);
   const subs = exported.submissions.map((s) => ({ id: s.id, createdAt: s.created_at, completedAt: s.completed_at, answers: s.answers }));
   const results = aggregateSubmissions(exported.config, subs);
   const q = (id) => results.questions.find((x) => x.id === id);
 
-  assert.deepEqual(results.totals, { started: 4, completed: 3 });
+  assert.deepEqual(results.totals, { started: 3, completed: 2 });
   assert.equal(q('recommend').answered, 3);
   assert.equal(q('recommend').average, (5 + 4 + 3) / 3);
   assert.equal(q('news_channel').options.find((o) => o.value === 'email').count, 2);
-  assert.deepEqual(q('not_using_reason').texts, [{ text: 'No need' }]);
-  assert.equal(q('years_using').options.find((o) => o.value === 'not_using').count, 1);
-  // the non-user also gave the default free-text answer
-  assert.deepEqual(q('one_word').texts.map((t) => t.text).sort(), ['Teksts: one_word', 'ātrs', 'ērts']);
+  assert.equal(q('support_rating').answered, 1, 'only the person who contacted support was asked');
+  assert.equal(q('support_rating').average, 5);
+  assert.deepEqual(q('leaving_reason').texts, [{ text: 'Dārgi' }]);
+  assert.deepEqual(q('pain_point').texts.map((t) => t.text).sort(), ['ātrs', 'ērts']);
+  assert.equal(q('one_word'), undefined);
 });
 
 /* ---------- access control ---------- */
