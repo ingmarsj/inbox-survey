@@ -164,3 +164,22 @@ test('demo API handles the "Cits" write-in like the server', async () => {
   await put('email_purpose', ['work']);
   assert.equal((await answers()).email_purpose_other, undefined);
 });
+
+test('demo API asks why not Premium only after "agrāk lietoju" or "zinu, bet nelietoju"', async () => {
+  const api = newDemo();
+  const { id } = await api('POST', 'api/submissions');
+  const put = (qid, value) => api('PUT', `api/submissions/${id}/answers/${qid}`, { value });
+  const answers = async () => (await api('GET', `api/submissions/${id}`)).answers;
+
+  assert.equal((await failure(put('premium_reason', 'Dārgi'))).status, 400, 'not on the path yet');
+  await put('premium_used', 'unknown');
+  assert.equal((await failure(put('premium_reason', 'Dārgi'))).status, 400);
+  await put('premium_used', 'before');
+  await put('premium_reason', 'Dārgi');
+  assert.deepEqual(await answers(), { premium_used: 'before', premium_reason: 'Dārgi' });
+  await put('premium_used', 'never_known');
+  assert.equal((await answers()).premium_reason, 'Dārgi', 'still on the path');
+  await put('premium_used', 'now');
+  assert.deepEqual(await answers(), { premium_used: 'now' });
+  assert.equal((await failure(put('age_group', 'under_18'))).status, 400, 'nobody under 18');
+});

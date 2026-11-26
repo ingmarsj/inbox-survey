@@ -299,7 +299,7 @@ test('CSV export has a header, UTF-8 BOM, proper quoting and blocks formula inje
     assert.match(res.headers.get('content-disposition'), /attachment/);
     assert.ok(res.text.startsWith('﻿submission_id,created_at,completed_at,age_group,'));
     const header = res.text.slice(1).split('\r\n')[0].split(',');
-    assert.deepEqual(header.slice(3), config.questions.map((q) => q.id));
+    assert.deepEqual(header.slice(3), [...config.questions.map((q) => q.id), ...config.archived.map((q) => q.id)], 'live questions first, removed ones last');
     assert.ok(res.text.includes(`"'=HYPERLINK(""http://x"")"`), 'formula is neutralised and quotes are escaped');
     assert.ok(res.text.includes('"rinda 1\nrinda 2, ar komatu"'));
     assert.ok(res.text.includes('email|in_app'), 'multi answers are joined with |');
@@ -505,22 +505,25 @@ test('results count the support rating only among the people who were asked', as
   }
 });
 
-test('the removed questions are not in the results or the export', async () => {
+test('removed questions are archived: not asked any more, listed in the results only when somebody answered them', async () => {
   const s = await startServer();
   try {
     await submitAll(s);
     const results = (await s.call('GET', `/api/results?token=${TOKEN}`)).json;
     const ids = results.questions.map((q) => q.id);
     const removed = ['one_word', 'not_using_reason', 'news_frequency', 'support_comment', 'region'];
-    const csv = (await s.call('GET', `/api/export.csv?token=${TOKEN}`)).text;
     for (const id of removed) {
-      assert.equal(ids.includes(id), false, id);
-      assert.equal(csv.includes(id), false, `${id} in the CSV`);
+      assert.equal(ids.includes(id), false, `${id} has no answers, so it is not listed`);
       assert.equal((await s.answer(await s.newSubmission(), id, 'x')).status, 404, `${id} cannot be answered any more`);
     }
+    // ...but the CSV keeps a column for each of them, after the live questions
+    const csv = (await s.call('GET', `/api/export.csv?token=${TOKEN}`)).text;
+    const header = csv.slice(1).split('\r\n')[0].split(',');
+    for (const id of removed) assert.ok(header.includes(id), `${id} column`);
+
     // answers that no longer exist are refused too
     const id = await s.newSubmission();
-    for (const [qid, value] of [['years_using', 'not_using'], ['years_using', 'under_1'], ['years_using', '2'], ['email_purpose', ['bills']], ['inbox_products', ['dating']], ['inbox_products', ['xtv']], ['premium_used', 'never_known_old']]) {
+    for (const [qid, value] of [['years_using', 'not_using'], ['years_using', 'under_1'], ['years_using', '2'], ['age_group', 'under_18'], ['email_purpose', ['bills']], ['inbox_products', ['dating']], ['inbox_products', ['xtv']], ['premium_used', 'never_known_old']]) {
       assert.equal((await s.answer(id, qid, value)).status, 400, `${qid}=${JSON.stringify(value)}`);
     }
   } finally {
@@ -528,28 +531,55 @@ test('the removed questions are not in the results or the export', async () => {
   }
 });
 
-/* ---------- "Cits": an option with a text box ---------- */
-
-test('"Cits" in the news question takes a write-in text, which only exists while "Cits" is selected', async () => {
+test('answers given to the old survey stay visible: removed questions and removed options show up in the results and the CSV', async () => {
   const s = await startServer();
   try {
-    const id = await s.newSubmission();
-    const answers = async () => (await s.call('GET', `/api/submissions/${id}`)).json.answers;
+    // two people who answered the old survey (their answers are written straight into the database, as the old version did)
+    const old = (id, completed, answers) => {
+      s.db.prepare('INSERT INTO submissions (id, created_at, completed_at) VALUES (?, ?, ?)').run(id, '2026-11-10T10:00:00.000Z', completed ? '2026-11-10T10:05:00.000Z' : null);
+      for (const [qid, value] of Object.entries(answers)) {
+        s.db.prepare('INSERT INTO answers (submission_id, question_id, value, updated_at) VALUES (?, ?, ?, ?)').run(id, qid, JSON.stringify(value), '2026-11-10T10:01:00.000Z');
+      }
+    };
+    old('00000000-0000-4000-8000-000000000001', true, { age_group: 'under_18', years_using: '2', one_word: 'ātrs', news_frequency: 'monthly', news_channel: ['email'], inbox_products: ['dating', 'mobile_app'] });
+    old('00000000-0000-4000-8000-000000000002', true, { age_group: '25_34', years_using: 'not_using', not_using_reason: 'Lietoju citu pastu', one_word: 'ērts' });
+    await submitAll(s); // somebody on the current survey
 
-    await s.answer(id, 'years_using', '2_4');
-    // the text box is not part of the path until "Cits" is chosen
-    assert.equal((await s.answer(id, 'news_channel_other', 'My blog')).status, 400);
-    await s.answer(id, 'news_channel', ['email']);
-    assert.equal((await s.answer(id, 'news_channel_other', 'My blog')).status, 400);
+    const results = (await s.call('GET', `/api/results?token=${TOKEN}`)).json;
+    const q = (id) => results.questions.find((x) => x.id === id);
+    assert.deepEqual(results.totals, { started: 3, completed: 3 });
 
-    await s.answer(id, 'news_channel', ['email', 'other']);
-    assert.equal((await s.answer(id, 'news_channel_other', '  My blog  ')).status, 200);
-    assert.equal((await answers()).news_channel_other, 'My blog', 'trimmed');
-    assert.equal((await s.answer(id, 'news_channel_other', 'x'.repeat(201))).status, 400);
+    // removed questions with answers are listed, flagged, and after all the live questions
+    const archivedIds = results.questions.filter((x) => x.archived).map((x) => x.id);
+    assert.deepEqual(archivedIds, ['not_using_reason', 'one_word', 'news_frequency']);
+    assert.ok(results.questions.findIndex((x) => x.archived) > results.questions.findIndex((x) => x.id === 'anything_else'));
+    assert.deepEqual(q('one_word').texts.map((t) => t.text).sort(), ['ātrs', 'ērts']);
+    assert.deepEqual(q('not_using_reason').texts, [{ text: 'Lietoju citu pastu' }]);
+    assert.equal(q('news_frequency').options.find((o) => o.value === 'monthly').count, 1);
+    assert.equal(q('region'), undefined, 'a removed question nobody answered is not listed');
+    assert.equal(q('support_comment'), undefined);
 
-    await s.answer(id, 'news_channel', ['email']); // unselecting "Cits" removes the text
-    assert.equal((await answers()).news_channel_other, undefined);
-    assert.deepEqual((await answers()).news_channel, ['email']);
+    // removed options of live questions are counted and flagged, and only when used
+    const years = Object.fromEntries(q('years_using').options.filter((o) => o.count).map((o) => [o.value, { count: o.count, archived: o.archived === true }]));
+    assert.deepEqual(years, { '2': { count: 1, archived: true }, not_using: { count: 1, archived: true }, '0_1': { count: 1, archived: false } });
+    assert.deepEqual(q('age_group').options.filter((o) => o.archived).map((o) => [o.value, o.count]), [['under_18', 1]]);
+    assert.deepEqual(q('inbox_products').options.filter((o) => o.archived).map((o) => [o.value, o.count]), [['dating', 1]], 'unused archived options (pp, xtv) are left out');
+    assert.equal(q('inbox_products').options.find((o) => o.value === 'mobile_app').count, 2, 'live options count old and new answers together');
+
+    // the CSV has them too
+    const csv = (await s.call('GET', `/api/export.csv?token=${TOKEN}`)).text;
+    const lines = csv.slice(1).split('\r\n').filter(Boolean);
+    const header = lines[0].split(',');
+    const row = lines.find((l) => l.startsWith('00000000-0000-4000-8000-000000000002')).split(',');
+    assert.equal(row[header.indexOf('one_word')], 'ērts');
+    assert.equal(row[header.indexOf('not_using_reason')], 'Lietoju citu pastu');
+    assert.equal(row[header.indexOf('years_using')], 'not_using');
+
+    // and the statistics page gets the whole export, including the old answers and the date the current survey started
+    const exported = (await s.call('GET', `/api/export.json?token=${TOKEN}`)).json;
+    assert.equal(exported.config.currentSince, config.currentSince);
+    assert.equal(exported.config.archived.length, config.archived.length);
+    assert.equal(exported.subs.length, 3);
   } finally {
     await s.stop();
   }
@@ -625,6 +655,49 @@ test('/stats redirects to /stats/ and the statistics page is served', async () =
     assert.match(page.text, /Aptaujas statistika/);
     assert.equal((await s.call('GET', '/stats.js')).status, 200);
     assert.equal((await s.call('GET', '/stats-data.js')).status, 200);
+  } finally {
+    await s.stop();
+  }
+});
+
+test('"Kāpēc neizvēlaties Inbox.lv Premium?" is asked only of people who used Premium before or know it and do not use it', async () => {
+  const s = await startServer();
+  try {
+    const id = await s.newSubmission();
+    const answers = async () => (await s.call('GET', `/api/submissions/${id}`)).json.answers;
+
+    assert.equal((await s.answer(id, 'premium_reason', 'Dārgi')).status, 400, 'hidden before the answer');
+    for (const hidden of ['now', 'unknown']) {
+      await s.answer(id, 'premium_used', hidden);
+      assert.equal((await s.answer(id, 'premium_reason', 'Dārgi')).status, 400, hidden);
+    }
+    for (const shown of ['before', 'never_known']) {
+      await s.answer(id, 'premium_used', shown);
+      assert.equal((await s.answer(id, 'premium_reason', '  Par dārgu, pietiek ar bezmaksas  ')).status, 200, shown);
+      assert.deepEqual(await answers(), { premium_used: shown, premium_reason: 'Par dārgu, pietiek ar bezmaksas' });
+    }
+    assert.equal((await s.answer(id, 'premium_reason', 'x'.repeat(1001))).status, 400);
+    assert.equal((await s.answer(id, 'premium_reason', '   ')).status, 200, 'an empty text clears it: the question is optional');
+    assert.equal((await answers()).premium_reason, undefined);
+
+    await s.answer(id, 'premium_reason', 'Vēlreiz');
+    await s.answer(id, 'premium_used', 'now'); // no longer one of the answers that ask for a reason
+    assert.deepEqual(await answers(), { premium_used: 'now' }, 'the reason goes with the answer');
+  } finally {
+    await s.stop();
+  }
+});
+
+test('a respondent who used Premium before can finish with or without writing a reason', async () => {
+  const s = await startServer();
+  try {
+    const without = await submitAll(s, { premium_used: 'before' });
+    assert.equal((await s.call('GET', `/api/submissions/${without}`)).json.answers.premium_reason, 'Teksts: premium_reason', 'the helper answers every visible question');
+    const id = await s.newSubmission();
+    for (const [qid, value] of Object.entries(validAnswers({ premium_used: 'never_known' }))) {
+      if (qid !== 'premium_reason') await s.answer(id, qid, value);
+    }
+    assert.equal((await s.call('POST', `/api/submissions/${id}/complete`)).status, 200, 'the reason is optional');
   } finally {
     await s.stop();
   }

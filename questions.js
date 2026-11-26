@@ -36,6 +36,7 @@ export function loadConfig(file) {
   }
   checkVisibilityRules(config.questions);
   checkWriteIns(config.questions);
+  checkArchive(config);
   return config;
 }
 
@@ -48,17 +49,61 @@ function checkVisibilityRules(questions) {
     const rule = q.visibleIf;
     if (rule === undefined) return;
     const where = `questions.json: question "${q.id}" visibleIf`;
-    const modes = ['equals', 'notEquals', 'includes'].filter((key) => rule[key] !== undefined);
-    if (modes.length !== 1) throw new Error(`${where}: use exactly one of "equals", "notEquals" or "includes"`);
+    const modes = ['equals', 'notEquals', 'in', 'includes'].filter((key) => rule[key] !== undefined);
+    if (modes.length !== 1) throw new Error(`${where}: use exactly one of "equals", "notEquals", "in" or "includes"`);
     const mode = modes[0];
     const source = questions.slice(0, index).find((x) => x.id === rule.question);
     if (!source) throw new Error(`${where}: "${rule.question}" must be an earlier question`);
     const wanted = mode === 'includes' ? 'multi' : 'single';
     if (source.type !== wanted) throw new Error(`${where}: "${source.id}" must be a ${wanted === 'multi' ? 'multiple' : 'single'}-choice question for "${mode}"`);
-    if (!source.options.some((o) => o.value === rule[mode])) {
+    if (mode === 'in') {
+      if (!Array.isArray(rule.in) || rule.in.length === 0) throw new Error(`${where}: "in" needs a non-empty list of options`);
+      for (const value of rule.in) {
+        if (!source.options.some((o) => o.value === value)) throw new Error(`${where}: "${value}" is not an option of "${source.id}"`);
+      }
+    } else if (!source.options.some((o) => o.value === rule[mode])) {
       throw new Error(`${where}: "${rule[mode]}" is not an option of "${source.id}"`);
     }
   });
+}
+
+/**
+ * Removed questions (`archived`) and removed answer options (`archivedOptions`) are kept only so that earlier
+ * answers stay visible in the results. They never take part in the survey, so they must not clash with live
+ * ids or values, and `currentSince` (when the current survey went live) must be a date.
+ */
+function checkArchive(config) {
+  const live = new Set(config.questions.map((q) => q.id));
+  if (config.archived !== undefined) {
+    if (!Array.isArray(config.archived)) throw new Error('questions.json: "archived" must be a list');
+    const seen = new Set();
+    for (const q of config.archived) {
+      const where = `questions.json: archived question "${q.id}"`;
+      if (!q.id || !/^[a-z0-9_]+$/.test(q.id)) throw new Error(`${where}: id must match [a-z0-9_]+`);
+      if (live.has(q.id)) throw new Error(`${where}: the id is used by a live question`);
+      if (seen.has(q.id)) throw new Error(`${where}: duplicate id`);
+      seen.add(q.id);
+      if (!TYPES.has(q.type)) throw new Error(`${where}: unknown type "${q.type}"`);
+      if (!q.title) throw new Error(`${where}: missing title`);
+      if ((q.type === 'single' || q.type === 'multi') && (!Array.isArray(q.options) || q.options.length === 0)) throw new Error(`${where}: needs options`);
+      if (q.type === 'scale' && (!Number.isInteger(q.min) || !Number.isInteger(q.max) || q.min >= q.max)) throw new Error(`${where}: scale needs integer min < max`);
+    }
+  }
+  for (const q of config.questions) {
+    if (q.archivedOptions === undefined) continue;
+    const where = `questions.json: question "${q.id}"`;
+    if (q.type !== 'single' && q.type !== 'multi') throw new Error(`${where}: "archivedOptions" works on single and multiple choice only`);
+    if (!Array.isArray(q.archivedOptions)) throw new Error(`${where}: "archivedOptions" must be a list`);
+    const values = new Set(q.options.map((o) => o.value));
+    for (const o of q.archivedOptions) {
+      if (!o.value || !o.label) throw new Error(`${where}: an archived option needs value and label`);
+      if (values.has(o.value)) throw new Error(`${where}: archived option "${o.value}" is also a live option`);
+      values.add(o.value);
+    }
+  }
+  if (config.currentSince !== undefined && Number.isNaN(Date.parse(config.currentSince))) {
+    throw new Error('questions.json: "currentSince" must be a date such as 2026-11-26T00:00:00Z');
+  }
 }
 
 /** An "inline" question has no screen of its own: it is the text box of a "write-in" option such as "Cits". */

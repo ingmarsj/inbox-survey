@@ -159,6 +159,11 @@ as $$
       then (answers -> (q->'visibleIf'->>'question')) is not distinct from (q->'visibleIf'->'equals')
     when (q->'visibleIf') ? 'notEquals'
       then (answers -> (q->'visibleIf'->>'question')) is distinct from (q->'visibleIf'->'notEquals')
+    when (q->'visibleIf') ? 'in'
+      then coalesce(
+        jsonb_typeof(q->'visibleIf'->'in') = 'array'
+        and (q->'visibleIf'->'in') @> jsonb_build_array(answers -> (q->'visibleIf'->>'question')),
+        false)
     when (q->'visibleIf') ? 'includes'
       then coalesce(
         jsonb_typeof(answers -> (q->'visibleIf'->>'question')) = 'array'

@@ -116,7 +116,7 @@ test('the shipped survey follows the marketing wording and order', () => {
     'age_group', 'gender', 'city', 'years_using', 'email_frequency', 'email_purpose', 'email_purpose_other', 'inbox_products',
     'news_channel', 'news_channel_other',
     'feedback_channel', 'feedback_ease', 'satisfaction', 'recommend',
-    'improvements_noticed', 'premium_used',
+    'improvements_noticed', 'premium_used', 'premium_reason',
     'support_tried', 'support_rating',
     'pain_point', 'considered_leaving', 'leaving_reason', 'anything_else',
   ]);
@@ -152,17 +152,23 @@ test('nobody gets a "non-user" path: the survey goes to Inbox.lv users only', ()
   assert.deepEqual(conditional, [
     ['email_purpose_other', 'email_purpose'],
     ['news_channel_other', 'news_channel'],
+    ['premium_reason', 'premium_used'],
     ['support_rating', 'support_tried'],
     ['leaving_reason', 'considered_leaving'],
   ]);
   assert.equal(config.questions.some((q) => JSON.stringify(q.visibleIf ?? {}).includes('not_using')), false);
 });
 
-test('follow-up questions: the support rating and the reason for thinking about leaving', () => {
+test('follow-up questions: Premium reason, the support rating and the reason for thinking about leaving', () => {
   const visible = (answers) => config.questions.filter((q) => isQuestionVisible(q, answers)).map((q) => q.id);
   const base = visible({});
-  assert.equal(base.length, config.questions.length - 4, 'with no answers the four follow-ups are hidden');
-  for (const id of ['support_rating', 'leaving_reason', 'email_purpose_other', 'news_channel_other']) assert.ok(!base.includes(id), id);
+  assert.equal(base.length, config.questions.length - 5, 'with no answers the five follow-ups are hidden');
+  for (const id of ['premium_reason', 'support_rating', 'leaving_reason', 'email_purpose_other', 'news_channel_other']) assert.ok(!base.includes(id), id);
+
+  // why not Premium: asked of people who used it before or know it and do not use it, not of users or people who did not know it
+  for (const answer of ['before', 'never_known']) assert.ok(visible({ premium_used: answer }).includes('premium_reason'), answer);
+  for (const answer of ['now', 'unknown']) assert.ok(!visible({ premium_used: answer }).includes('premium_reason'), answer);
+  assert.deepEqual(byId('premium_reason').visibleIf, { question: 'premium_used', in: ['before', 'never_known'] });
 
   // the support rating is shown only to people who answered "Jā, esmu vērsies"
   assert.ok(visible({ support_tried: 'tried' }).includes('support_rating'));
@@ -176,6 +182,7 @@ test('follow-up questions: the support rating and the reason for thinking about 
   assert.equal(byId('support_rating').required, true);
   assert.equal(byId('leaving_reason').required, false);
   assert.deepEqual(hiddenAnsweredIds(config.questions, { support_tried: 'knew', support_rating: 4 }), ['support_rating']);
+  assert.deepEqual(hiddenAnsweredIds(config.questions, { premium_used: 'now', premium_reason: 'x' }), ['premium_reason']);
 });
 
 test('isQuestionVisible and hiddenAnsweredIds', () => {
@@ -238,7 +245,7 @@ test('demographics: age group and gender, with the agreed options', () => {
     assert.equal(q.visibleIf, undefined, 'asked of everybody, including non-users');
   }
   assert.deepEqual(byId('age_group').options.map((o) => o.label), [
-    'Jaunāks par 18', '18–24', '25–34', '35–44', '45–54', '55–64', '65 un vairāk',
+    '18–24', '25–34', '35–44', '45–54', '55–64', '65 un vairāk',
   ]);
   assert.deepEqual(byId('gender').options.map((o) => o.label), ['Sieviete', 'Vīrietis', 'Nevēlos norādīt']);
 });
@@ -277,7 +284,7 @@ test('where to leave feedback is a multiple-choice question with the agreed opti
   assert.equal(q.type, 'multi');
   assert.equal(q.required, true);
   assert.deepEqual(q.options.map((o) => o.label), [
-    'Īsa anketa vēstulē e-pastā', 'Sarunā ar atbalsta komandu', 'Atsauksmju forma mobilajā aplikācijā', 'Sociālajos tīklos',
+    'Īsa anketa vēstulē e-pastā', 'Sazinoties ar atbalsta komandu', 'Atsauksmju forma mobilajā aplikācijā', 'Sociālajos tīklos',
   ]);
   assert.deepEqual(validateAnswer(q, ['email_survey', 'social']), { ok: true, value: ['email_survey', 'social'] });
   assert.equal(validateAnswer(q, 'email_survey').ok, false, 'a single value is no longer valid');
@@ -410,10 +417,12 @@ test('how often and what for: a frequency dropdown and a multiple choice with a 
   assert.deepEqual(other.visibleIf, { question: 'email_purpose', includes: 'other' });
 });
 
-test('Inbox.lv products: the mobile app and the services, without e-mail, Dating, PP.lv and XTV', () => {
+test('Inbox.lv products: the mobile app and the services, "Tikai e-pastu", and no remark about e-mail', () => {
   const q = byId('inbox_products');
   assert.equal(q.type, 'multi');
   assert.equal(q.required, true);
+  assert.equal(q.hint, 'Var izvēlēties vairākus.', 'no "E-pastu neminam"');
+  assert.doesNotMatch(JSON.stringify(q), /neminam/);
   assert.deepEqual(q.options.map((o) => [o.value, o.label]), [
     ['mobile_app', 'Mobilā aplikācija'],
     ['files', 'Files (failu glabāšana un sūtīšana)'],
@@ -424,15 +433,21 @@ test('Inbox.lv products: the mobile app and the services, without e-mail, Dating
     ['games', 'Spēles'],
     ['business', 'Business (inbox.eu)'],
     ['inx', 'Saišu saīsinātājs'],
+    ['email_only', 'Tikai e-pastu'],
     ['none', 'Neizmantoju neko no šī'],
   ]);
   for (const gone of ['dating', 'pp', 'xtv']) assert.equal(q.options.some((o) => o.value === gone), false, gone);
-  assert.equal(q.options.some((o) => /e-?pasts|mail/i.test(o.label)), false, 'e-mail is not listed');
   assert.equal(q.options.at(-1).value, 'none', 'there is an answer for people who use none of them');
   assert.equal(q.maxSelect, q.options.length, 'every product can be ticked at once');
   assert.equal(validateAnswer(q, q.options.map((o) => o.value)).ok, true);
+  assert.deepEqual(validateAnswer(q, ['email_only']), { ok: true, value: ['email_only'] });
   assert.equal(validateAnswer(q, ['dating']).ok, false);
   assert.equal(validateAnswer(q, []).ok, false);
+});
+
+test('answer wording: e-mail sign-ups and the support team', () => {
+  assert.equal(byId('email_purpose').options.find((o) => o.value === 'signups').label, 'Reģistrācijai interneta veikalos un citiem pakalpojumiem');
+  assert.equal(byId('feedback_channel').options.find((o) => o.value === 'support_team').label, 'Sazinoties ar atbalsta komandu');
 });
 
 test('improvements, Premium and support', () => {
@@ -484,4 +499,62 @@ test('thinking about leaving: Jā/Nē, then an optional reason for those who sai
 test('the "describe Inbox.lv in one word" question is gone', () => {
   assert.equal(byId('one_word'), undefined);
   assert.equal(config.questions.some((q) => /vienā vārdā/.test(q.title)), false);
+});
+
+test('age: nobody under 18 is asked, so there is no under-18 answer', () => {
+  const q = byId('age_group');
+  assert.equal(q.options.some((o) => o.value === 'under_18' || /18/.test(o.label) && /Jaunāks/.test(o.label)), false);
+  assert.deepEqual(q.options.map((o) => o.value), ['18_24', '25_34', '35_44', '45_54', '55_64', '65_plus']);
+  assert.equal(validateAnswer(q, 'under_18').ok, false);
+  assert.equal(validateAnswer(q, '18_24').ok, true);
+});
+
+test('the Premium follow-up is a free, optional text with the agreed title', () => {
+  const q = byId('premium_reason');
+  assert.equal(q.type, 'text');
+  assert.equal(q.title, 'Kāpēc neizvēlaties Inbox.lv Premium?');
+  assert.equal(q.required, false);
+  assert.equal(q.multiline, true);
+  assert.equal(q.maxLength, 1000);
+  assert.equal(q.section, 'Uzlabojumi un Premium');
+  assert.equal(config.questions.indexOf(q), config.questions.findIndex((x) => x.id === 'premium_used') + 1, 'right after the Premium question');
+  assert.deepEqual(validateAnswer(q, '  Par dārgs  '), { ok: true, value: 'Par dārgs' });
+  assert.deepEqual(validateAnswer(q, ''), { ok: true, value: null });
+  assert.equal(validateAnswer(q, 'x'.repeat(1001)).ok, false);
+});
+
+test('"in" rules: visible when the answer is one of the listed options', () => {
+  const q = { id: 'b', visibleIf: { question: 'a', in: ['x', 'y'] } };
+  assert.equal(isQuestionVisible(q, { a: 'x' }), true);
+  assert.equal(isQuestionVisible(q, { a: 'y' }), true);
+  assert.equal(isQuestionVisible(q, { a: 'z' }), false);
+  assert.equal(isQuestionVisible(q, {}), false);
+  assert.equal(isQuestionVisible(q, { a: ['x'] }), false, 'a stale multiple-choice value does not match');
+  assert.equal(isQuestionVisible({ id: 'c', visibleIf: { question: 'a', in: [] } }, { a: 'x' }), false);
+  const all = [{ id: 'a' }, q];
+  assert.deepEqual(hiddenAnsweredIds(all, { a: 'z', b: 1 }), ['b']);
+  assert.deepEqual(hiddenAnsweredIds(all, { a: 'x', b: 1 }), []);
+});
+
+test('loadConfig validates "in" rules', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'cfg-'));
+  const opts = [{ value: 'x', label: 'X' }, { value: 'y', label: 'Y' }, { value: 'z', label: 'Z' }];
+  const source = { id: 'a', type: 'single', title: 'A', options: opts };
+  const load = (...questions) => {
+    const file = path.join(dir, 'q.json');
+    writeFileSync(file, JSON.stringify({ questions }));
+    return loadConfig(file);
+  };
+  const dependent = (visibleIf) => ({ id: 'b', type: 'text', title: 'B', visibleIf });
+  try {
+    assert.doesNotThrow(() => load(source, dependent({ question: 'a', in: ['x', 'y'] })));
+    assert.throws(() => load(source, dependent({ question: 'a', in: [] })), /non-empty list/);
+    assert.throws(() => load(source, dependent({ question: 'a', in: 'x' })), /non-empty list/);
+    assert.throws(() => load(source, dependent({ question: 'a', in: ['x', 'nope'] })), /not an option/);
+    assert.throws(() => load(source, dependent({ question: 'a', in: ['x'], equals: 'x' })), /exactly one/);
+    assert.throws(() => load({ id: 'm', type: 'multi', title: 'M', options: opts }, dependent({ question: 'm', in: ['x'] })), /single-choice/);
+    assert.throws(() => load(dependent({ question: 'a', in: ['x'] }), source), /earlier question/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
