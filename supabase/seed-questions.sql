@@ -13,6 +13,7 @@ values (true, $survey_json$
     "title": "Paldies!",
     "subtitle": "Jūsu atbildes ir saglabātas. Tās palīdzēs mums uzlabot Inbox.lv."
   },
+  "currentSince": "2026-11-25T22:00:00Z",
   "questions": [
     {
       "id": "age_group",
@@ -21,10 +22,6 @@ values (true, $survey_json$
       "required": true,
       "title": "Kurā vecuma grupā Jūs esat?",
       "options": [
-        {
-          "value": "under_18",
-          "label": "Jaunāks par 18"
-        },
         {
           "value": "18_24",
           "label": "18–24"
@@ -48,6 +45,12 @@ values (true, $survey_json$
         {
           "value": "65_plus",
           "label": "65 un vairāk"
+        }
+      ],
+      "archivedOptions": [
+        {
+          "value": "under_18",
+          "label": "Jaunāks par 18"
         }
       ]
     },
@@ -444,6 +447,32 @@ values (true, $survey_json$
           "value": "10_plus",
           "label": "10+ gadi"
         }
+      ],
+      "archivedOptions": [
+        {
+          "value": "not_using",
+          "label": "Nelietoju"
+        },
+        {
+          "value": "under_1",
+          "label": "Mazāk par gadu"
+        },
+        {
+          "value": "1",
+          "label": "1 gads"
+        },
+        {
+          "value": "2",
+          "label": "2 gadi"
+        },
+        {
+          "value": "3",
+          "label": "3 gadi"
+        },
+        {
+          "value": "4",
+          "label": "4 gadi"
+        }
       ]
     },
     {
@@ -496,7 +525,7 @@ values (true, $survey_json$
         },
         {
           "value": "signups",
-          "label": "Reģistrācijai interneta veikalos un pakalpojumos"
+          "label": "Reģistrācijai interneta veikalos un citiem pakalpojumiem"
         },
         {
           "value": "spam",
@@ -506,6 +535,12 @@ values (true, $survey_json$
           "value": "other",
           "label": "Cits",
           "writeIn": "email_purpose_other"
+        }
+      ],
+      "archivedOptions": [
+        {
+          "value": "bills",
+          "label": "Rēķiniem un oficiāliem paziņojumiem"
         }
       ]
     },
@@ -529,9 +564,9 @@ values (true, $survey_json$
       "section": "Par Jums",
       "type": "multi",
       "required": true,
-      "maxSelect": 10,
+      "maxSelect": 11,
       "title": "Kurus Inbox.lv produktus Jūs izmantojat?",
-      "hint": "E-pastu neminam. Var izvēlēties vairākus.",
+      "hint": "Var izvēlēties vairākus.",
       "options": [
         {
           "value": "mobile_app",
@@ -570,8 +605,26 @@ values (true, $survey_json$
           "label": "Saišu saīsinātājs"
         },
         {
+          "value": "email_only",
+          "label": "Tikai e-pastu"
+        },
+        {
           "value": "none",
           "label": "Neizmantoju neko no šī"
+        }
+      ],
+      "archivedOptions": [
+        {
+          "value": "dating",
+          "label": "Dating"
+        },
+        {
+          "value": "pp",
+          "label": "PP.lv"
+        },
+        {
+          "value": "xtv",
+          "label": "XTV"
         }
       ]
     },
@@ -637,7 +690,7 @@ values (true, $survey_json$
         },
         {
           "value": "support_team",
-          "label": "Sarunā ar atbalsta komandu"
+          "label": "Sazinoties ar atbalsta komandu"
         },
         {
           "value": "mobile_app_form",
@@ -757,6 +810,24 @@ values (true, $survey_json$
       ]
     },
     {
+      "id": "premium_reason",
+      "section": "Uzlabojumi un Premium",
+      "type": "text",
+      "required": false,
+      "maxLength": 1000,
+      "multiline": true,
+      "title": "Kāpēc neizvēlaties Inbox.lv Premium?",
+      "hint": "Pastāstiet saviem vārdiem.",
+      "placeholder": "Jūsu atbilde",
+      "visibleIf": {
+        "question": "premium_used",
+        "in": [
+          "before",
+          "never_known"
+        ]
+      }
+    },
+    {
       "id": "support_tried",
       "section": "Atbalsts",
       "type": "single",
@@ -844,6 +915,99 @@ values (true, $survey_json$
       "multiline": true,
       "title": "Ko vēl vēlaties mums pateikt?",
       "hint": "Ideja, uzslava, kritika, jebkas.",
+      "placeholder": "Jūsu atbilde"
+    }
+  ],
+  "archived": [
+    {
+      "id": "not_using_reason",
+      "section": "Par Jums",
+      "type": "text",
+      "maxLength": 1000,
+      "multiline": true,
+      "title": "Kāpēc Jūs nelietojat Inbox.lv?",
+      "hint": "Pastāstiet saviem vārdiem.",
+      "placeholder": "Jūsu atbilde"
+    },
+    {
+      "id": "one_word",
+      "section": "Asociācijas",
+      "type": "text",
+      "maxLength": 40,
+      "multiline": false,
+      "title": "Aprakstiet Inbox.lv vienā vārdā",
+      "placeholder": "Piemēram: ātrs"
+    },
+    {
+      "id": "news_frequency",
+      "section": "Jaunumi",
+      "type": "single",
+      "title": "Cik bieži vēlaties saņemt jaunumus par Inbox.lv?",
+      "options": [
+        {
+          "value": "monthly",
+          "label": "Reizi mēnesī"
+        },
+        {
+          "value": "quarterly",
+          "label": "Reizi ceturksnī"
+        },
+        {
+          "value": "important_only",
+          "label": "Tikai par svarīgām izmaiņām"
+        },
+        {
+          "value": "not_interested",
+          "label": "Neinteresē Inbox.lv jaunumi"
+        }
+      ]
+    },
+    {
+      "id": "region",
+      "section": "Par Jums",
+      "type": "single",
+      "display": "dropdown",
+      "title": "No kuras Latvijas daļas Jūs esat?",
+      "placeholder": "Izvēlieties",
+      "options": [
+        {
+          "value": "riga",
+          "label": "Rīga"
+        },
+        {
+          "value": "pieriga",
+          "label": "Pierīga (Rīgas apkārtne)"
+        },
+        {
+          "value": "vidzeme",
+          "label": "Vidzeme"
+        },
+        {
+          "value": "kurzeme",
+          "label": "Kurzeme"
+        },
+        {
+          "value": "zemgale",
+          "label": "Zemgale"
+        },
+        {
+          "value": "latgale",
+          "label": "Latgale"
+        },
+        {
+          "value": "abroad",
+          "label": "Dzīvoju ārpus Latvijas"
+        }
+      ]
+    },
+    {
+      "id": "support_comment",
+      "section": "Atbalsts",
+      "type": "text",
+      "maxLength": 1000,
+      "multiline": true,
+      "title": "Pastāstiet, kā Jums gāja ar atbalsta dienestu",
+      "hint": "Kas patika un ko varētu darīt labāk?",
       "placeholder": "Jūsu atbilde"
     }
   ]

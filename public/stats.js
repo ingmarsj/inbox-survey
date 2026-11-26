@@ -18,6 +18,12 @@ let supabaseApi = null;
 let data = null; // { config, subs } from the last successful load
 let filtersBuilt = false;
 
+/** The submissions the whole page is about: everything, or only those after the survey was last renewed (config.currentSince). */
+const scoped = () => {
+  const { config, subs } = data;
+  return $('f-period').value === 'current' && config.currentSince ? filterSubmissions(subs, { since: config.currentSince }) : subs;
+};
+
 /** Normalises the Supabase export (snake_case) and the Node server's export to the same shape. */
 async function load() {
   if (settings.backend === 'supabase') {
@@ -108,7 +114,8 @@ function buildFilters(config) {
       $(wrapId).hidden = true;
       return;
     }
-    $(selectId).replaceChildren(el('option', { value: '' }, allLabel), ...question.options.map((o) => el('option', { value: o.value }, o.label)));
+    const old = (question.archivedOptions ?? []).map((o) => ({ ...o, label: `${o.label} (vecā aptauja)` }));
+    $(selectId).replaceChildren(el('option', { value: '' }, allLabel), ...[...question.options, ...old].map((o) => el('option', { value: o.value }, o.label)));
   };
   fill('f-age', 'f-age-wrap', 'age_group', 'Visi vecumi');
   fill('f-gender', 'f-gender-wrap', 'gender', 'Visi dzimumi');
@@ -119,9 +126,10 @@ function buildFilters(config) {
 const currentFilters = () => ({ completedOnly: $('f-mode').value === 'done', age: $('f-age').value, gender: $('f-gender').value, city: $('f-city').value });
 
 function renderQuestion(q, fullLink) {
-  const card = el('div', { class: 'card' }, el('h3', {}, q.title), el('p', { class: 'meta' }, `${q.section ? q.section + ' · ' : ''}atbildēja ${q.answered}`));
+  const where = q.archived ? 'vecā aptauja' : q.section;
+  const card = el('div', { class: q.archived ? 'card card-archived' : 'card' }, el('h3', {}, q.title), el('p', { class: 'meta' }, `${where ? where + ' · ' : ''}atbildēja ${q.answered}`));
   if (q.options) {
-    for (const o of q.options) card.append(barRow(`${o.icon ? o.icon + ' ' : ''}${o.label}`, o.count, q.answered));
+    for (const o of q.options) card.append(barRow(`${o.icon ? o.icon + ' ' : ''}${o.label}${o.archived ? ' (vecā aptauja)' : ''}`, o.count, q.answered));
   } else if (q.distribution) {
     if (q.average !== null) card.append(el('p', {}, el('span', { class: 'big-number' }, q.average.toFixed(1)), `vidēji no ${q.max}`));
     for (const d of q.distribution) card.append(barRow(String(d.value), d.count, q.answered));
@@ -132,7 +140,8 @@ function renderQuestion(q, fullLink) {
 }
 
 function renderAnswers() {
-  const { config, subs } = data;
+  const { config } = data;
+  const subs = scoped();
   const view = filterSubmissions(subs, currentFilters());
   const result = aggregateSubmissions(config, view);
   const average = (id) => result.questions.find((q) => q.id === id)?.average ?? null;
@@ -145,13 +154,15 @@ function renderAnswers() {
     kpi(fmt(average('support_rating')), 'atbalsta dienesta pieredze, vidēji no 5'),
   );
   // A write-in box ("Cits: …") is free text, so it is read on the results page next to the other texts.
-  $('questions').replaceChildren(...result.questions.filter((q) => !config.questions.find((c) => c.id === q.id).inline).map((q) => renderQuestion(q, $('full').href)));
+  $('questions').replaceChildren(...result.questions.filter((q) => !config.questions.find((c) => c.id === q.id)?.inline).map((q) => renderQuestion(q, $('full').href)));
 }
 
 function render() {
   const now = new Date();
-  const { config, subs } = data;
+  const { config } = data;
+  const subs = scoped();
   if (!filtersBuilt) buildFilters(config);
+  $('f-period-wrap').hidden = !config.currentSince;
   renderKpis(overview(subs, now), now);
   renderTimeline(subs, now);
   renderDropOff(config, subs);
@@ -195,6 +206,7 @@ $('reset').addEventListener('click', () => {
   $('f-city').value = '';
   if (data) renderAnswers();
 });
+$('f-period').addEventListener('change', () => data && render());
 $('refresh').addEventListener('click', refresh);
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && token) refresh();

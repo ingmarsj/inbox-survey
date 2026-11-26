@@ -147,7 +147,7 @@ export function createApp({ dbPath = path.join(ROOT, 'data', 'survey.db'), quest
 
     if (method === 'GET' && pathname === '/api/export.json') {
       requireAdmin(url, req);
-      return send(res, 200, { config: { intro: config.intro, thanks: config.thanks, questions: config.questions }, subs: allSubmissions(db) });
+      return send(res, 200, { config: { intro: config.intro, thanks: config.thanks, currentSince: config.currentSince, questions: config.questions, archived: config.archived }, subs: allSubmissions(db) });
     }
 
     if (method === 'GET' && pathname === '/api/export.csv') {

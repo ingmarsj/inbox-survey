@@ -45,9 +45,10 @@ export function validateAnswer(q, raw) {
 
 /**
  * True when the question is on this respondent's path, given the answers so far.
- * A question may carry `visibleIf: { question, equals }` or `{ question, notEquals }` (an earlier
- * single-choice question), or `{ question, includes }` (an earlier multiple-choice question that
- * must contain that option).
+ * A question may carry `visibleIf: { question, equals }`, `{ question, notEquals }` or
+ * `{ question, in: [a, b] }` (an earlier single-choice question; `in` means the answer is one of
+ * those options), or `{ question, includes }` (an earlier multiple-choice question that must
+ * contain that option).
  */
 export function isQuestionVisible(q, answers) {
   const rule = q.visibleIf;
@@ -55,6 +56,7 @@ export function isQuestionVisible(q, answers) {
   const given = answers[rule.question];
   if (rule.equals !== undefined) return given === rule.equals;
   if (rule.notEquals !== undefined) return given !== rule.notEquals;
+  if (rule.in !== undefined) return Array.isArray(rule.in) && rule.in.includes(given);
   if (rule.includes !== undefined) return Array.isArray(given) && given.includes(rule.includes);
   return true;
 }

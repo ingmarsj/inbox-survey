@@ -14,10 +14,11 @@ const csvLink = document.getElementById('csv');
 if (settings.backend !== 'supabase') csvLink.href = `/api/export.csv?token=${encodeURIComponent(token)}`;
 
 function renderQuestion(q) {
-  const card = el('div', { class: 'card', 'data-q': q.id }, el('h3', {}, q.title), el('p', { class: 'meta' }, `${q.section ? q.section + ' · ' : ''}atbildēja ${q.answered}`));
+  const where = q.archived ? 'vecā aptauja' : q.section;
+  const card = el('div', { class: q.archived ? 'card card-archived' : 'card', 'data-q': q.id }, el('h3', {}, q.title), el('p', { class: 'meta' }, `${where ? where + ' · ' : ''}atbildēja ${q.answered}`));
 
   if (q.options) {
-    for (const o of q.options) card.append(barRow(`${o.icon ? o.icon + ' ' : ''}${o.label}`, o.count, q.answered));
+    for (const o of q.options) card.append(barRow(`${o.icon ? o.icon + ' ' : ''}${o.label}${o.archived ? ' (vecā aptauja)' : ''}`, o.count, q.answered));
   } else if (q.distribution) {
     if (q.average !== null) {
       card.append(el('p', {}, el('span', { class: 'big-number' }, q.average.toFixed(1)), `vidēji no ${q.max}`));

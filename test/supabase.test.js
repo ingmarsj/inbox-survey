@@ -119,6 +119,13 @@ test('SQL visibility rules agree with the JavaScript ones', async () => {
     { considered_leaving: 'no' },
     { years_using: 'not_using' }, // an option that no longer exists: nothing special happens
     { support_tried: 'tried', considered_leaving: 'yes', email_purpose: ['other'], news_channel: ['other'] },
+    { premium_used: 'now' },
+    { premium_used: 'before' },
+    { premium_used: 'never_known' },
+    { premium_used: 'unknown' },
+    { premium_used: 'martian' },
+    { premium_used: ['before'] }, // a stale multiple-choice value does not match an "in" rule
+    { premium_used: null },
   ];
   for (const answers of situations) {
     for (const q of config.questions) {
@@ -389,4 +396,76 @@ test('the SQL only creates survey_ objects and never drops anything', () => {
   const created = [...SCHEMA.matchAll(/create\s+(?:or\s+replace\s+)?(?:table|function)\s+(?:if\s+not\s+exists\s+)?public\.(\w+)/gi)].map((m) => m[1]);
   assert.ok(created.length >= 12);
   for (const name of created) assert.match(name, /^_?survey_/, name);
+});
+
+test('the Premium reason is on the path only for "agrāk lietoju" and "zinu, bet nelietoju"; the SQL "in" rule matches the JavaScript one', async () => {
+  const id = await create();
+  await assert.rejects(save(id, 'premium_reason', 'Dārgi'), /survey_not_on_path/, 'hidden until the first answer says so');
+  for (const hidden of ['now', 'unknown']) {
+    await save(id, 'premium_used', hidden);
+    await assert.rejects(save(id, 'premium_reason', 'Dārgi'), /survey_not_on_path/, hidden);
+  }
+  for (const shown of ['before', 'never_known']) {
+    await save(id, 'premium_used', shown);
+    await save(id, 'premium_reason', '  Par dārgu  ');
+    assert.deepEqual(await answersOf(id), { premium_used: shown, premium_reason: 'Par dārgu' });
+  }
+  await assert.rejects(save(id, 'premium_reason', 'x'.repeat(1001)), /survey_invalid/);
+  await save(id, 'premium_reason', '   ');
+  assert.equal((await answersOf(id)).premium_reason, undefined, 'optional: an empty text clears it');
+
+  await save(id, 'premium_reason', 'Vēlreiz');
+  await save(id, 'premium_used', 'unknown');
+  assert.deepEqual(await answersOf(id), { premium_used: 'unknown' }, 'the reason is dropped with the answer it depended on');
+
+  // nobody under 18, and the new "Tikai e-pastu" answer is accepted
+  await assert.rejects(save(id, 'age_group', 'under_18'), /survey_invalid/);
+  await save(id, 'age_group', '18_24');
+  await save(id, 'inbox_products', ['email_only']);
+  assert.deepEqual((await answersOf(id)).inbox_products, ['email_only']);
+});
+
+test('the SQL visibility function understands the "in" rule even for odd rules', async () => {
+  const rule = (inValue) => JSON.stringify({ id: 'b', visibleIf: { question: 'a', in: inValue } });
+  const visible = async (q, answers) => rpc('_survey_visible', q, JSON.stringify(answers));
+  assert.equal(await visible(rule(['x', 'y']), { a: 'x' }), true);
+  assert.equal(await visible(rule(['x', 'y']), { a: 'y' }), true);
+  assert.equal(await visible(rule(['x', 'y']), { a: 'z' }), false);
+  assert.equal(await visible(rule(['x', 'y']), {}), false);
+  assert.equal(await visible(rule([]), { a: 'x' }), false);
+  assert.equal(await visible(rule('x'), { a: 'x' }), false, 'a rule that is not a list never matches');
+});
+
+test('answers given to the old survey stay visible through the Supabase export too', async () => {
+  // old answers written straight into the tables, as the old version of the survey did
+  const old = async (completed, answers) => {
+    const id = await create();
+    for (const [qid, value] of Object.entries(answers)) {
+      await db.query('insert into public.survey_answers (submission_id, question_id, value) values ($1, $2, $3::jsonb)', [id, qid, JSON.stringify(value)]);
+    }
+    if (completed) await db.query('update public.survey_submissions set completed_at = now() where id = $1', [id]);
+    return id;
+  };
+  await old(true, { age_group: 'under_18', years_using: '2', one_word: 'ātrs', news_frequency: 'monthly', inbox_products: ['dating', 'mobile_app'] });
+  await old(true, { age_group: '25_34', years_using: 'not_using', not_using_reason: 'Lietoju citu pastu', one_word: 'ērts' });
+  await submitAll();
+
+  const exported = await rpc('survey_export', TOKEN);
+  assert.equal(exported.config.archived.length, config.archived.length, 'the export carries the archive');
+  assert.equal(exported.config.currentSince, config.currentSince);
+  const subs = exported.submissions.map((s) => ({ id: s.id, createdAt: s.created_at, completedAt: s.completed_at, answers: s.answers }));
+  const results = aggregateSubmissions(exported.config, subs);
+  const q = (id) => results.questions.find((x) => x.id === id);
+
+  assert.deepEqual(results.questions.filter((x) => x.archived).map((x) => x.id), ['not_using_reason', 'one_word', 'news_frequency']);
+  assert.deepEqual(q('one_word').texts.map((t) => t.text).sort(), ['ātrs', 'ērts']);
+  assert.equal(q('years_using').options.find((o) => o.value === 'not_using').count, 1);
+  assert.equal(q('age_group').options.find((o) => o.value === 'under_18').count, 1);
+  assert.equal(q('inbox_products').options.find((o) => o.value === 'dating').archived, true);
+  assert.equal(q('inbox_products').options.find((o) => o.value === 'mobile_app').count, 2);
+
+  // the old answers cannot be (re)written through the public functions
+  const id = await create();
+  await assert.rejects(save(id, 'one_word', 'jauns'), /survey_question_not_found/);
+  await assert.rejects(save(id, 'years_using', 'not_using'), /survey_invalid/);
 });
